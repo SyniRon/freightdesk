@@ -1,7 +1,7 @@
 // FreightDesk — parser, services, locations.
 // Parses EVE hangar paste, calculates volumes, evaluates per-service quotes.
 
-import { ITEM_DB } from "./itemsDb";
+import type { ItemEntry } from "./items";
 import type { RouteFormula, Service, ServiceRoute } from "./types";
 export type { RouteFormula, Service, ServiceRoute };
 import { SERVICES } from "./services.generated";
@@ -14,6 +14,7 @@ export interface MatchedLine {
   qty: number;
   vol: number;
   price: number;
+  id: number;  // typeID for downstream pricing lookup
 }
 
 export interface UnmatchedLine {
@@ -87,7 +88,7 @@ export const fmtInt = (n: number | null | undefined): string =>
   n == null || isNaN(n) ? "—" : Math.round(n).toLocaleString();
 
 // ─── Paste parser ───────────────────────────────────────────────────────────
-export function parseHangarPaste(raw: string): ParseResult {
+export function parseHangarPaste(raw: string, db: Record<string, ItemEntry>): ParseResult {
   const matched: MatchedLine[] = [];
   const unmatched: UnmatchedLine[] = [];
   const lines = raw.split(/\r?\n/);
@@ -117,11 +118,11 @@ export function parseHangarPaste(raw: string): ParseResult {
     }
     if (!name) continue;
     const key = name.toLowerCase();
-    const hit = ITEM_DB[key];
+    const hit = db[key];
     if (hit) {
       const existing = matched.find((r) => r.key === key);
       if (existing) existing.qty += qty;
-      else matched.push({ key, name, qty, vol: hit.vol, price: hit.price });
+      else matched.push({ key, name, qty, vol: hit.vol, price: 0, id: hit.id });
     } else {
       unmatched.push({ raw: line, name, qty });
     }

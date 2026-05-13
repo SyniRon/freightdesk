@@ -6,7 +6,7 @@
 // document element in case we surface a settings toggle later.
 
 import { useEffect, useMemo, useState } from "react";
-import { EXAMPLE_PASTE } from "./lib/itemsDb";
+import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import {
   evaluateServices,
   parseHangarPaste,
@@ -48,6 +48,13 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() =>
     LS.get<AppSettings>("settings", DEFAULT_SETTINGS),
   );
+  const [items, setItems] = useState<Record<string, ItemEntry> | null>(null);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+
+  // load items DB on mount
+  useEffect(() => {
+    loadItems().then(setItems).catch((e) => setItemsError(String(e)));
+  }, []);
 
   // persist
   useEffect(() => LS.set("raw", raw), [raw]);
@@ -64,7 +71,10 @@ export default function App() {
     document.documentElement.style.setProperty("--accent", ACCENT);
   }, []);
 
-  const parse = useMemo(() => parseHangarPaste(raw), [raw]);
+  const parse = useMemo(
+    () => (items ? parseHangarPaste(raw, items) : { matched: [], unmatched: [], totalVol: 0, totalValue: 0 }),
+    [raw, items],
+  );
   const quotes = useMemo(
     () => evaluateServices(parse, origin, dest, rushEnabled),
     [parse, origin, dest, rushEnabled],
@@ -110,6 +120,8 @@ export default function App() {
               raw={raw}
               setRaw={setRaw}
               parse={parse}
+              itemsLoading={items === null && !itemsError}
+              itemsError={itemsError}
               onLoadExample={() => setRaw(EXAMPLE_PASTE)}
             />
             <Reveal present={hasParse} enterDelay={REVEAL_MS} exitDelay={3 * STAGGER_MS}>

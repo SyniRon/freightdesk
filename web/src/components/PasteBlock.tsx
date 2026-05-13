@@ -6,9 +6,11 @@ interface PasteBlockProps {
   setRaw: (raw: string) => void;
   parse: ParseResult;
   onLoadExample: () => void;
+  itemsLoading?: boolean;
+  itemsError?: string | null;
 }
 
-export function PasteBlock({ raw, setRaw, parse, onLoadExample }: PasteBlockProps) {
+export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, itemsError }: PasteBlockProps) {
   const items = parse.matched.length + parse.unmatched.length;
   return (
     <section className="block paste-block">
@@ -22,7 +24,7 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample }: PasteBlockProp
         </div>
         <div className="block-actions">
           {!raw && (
-            <button className="btn-ghost" onClick={onLoadExample}>
+            <button className="btn-ghost" onClick={onLoadExample} disabled={!!itemsLoading}>
               Load example
             </button>
           )}
@@ -41,6 +43,7 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample }: PasteBlockProp
           onChange={(e) => setRaw(e.target.value)}
           placeholder={"Drake\t2\nLarge Shield Extender II\t12\nPLEX\t500\n…"}
           spellCheck={false}
+          disabled={!!itemsLoading}
         />
         <div className="paste-meter">
           <div className="meter-cell">
@@ -67,8 +70,22 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample }: PasteBlockProp
       </div>
 
       <div className="privacy">
-        <Dot style={{ color: "var(--ok)" }} />
-        <span>Your hangar list never leaves this browser. Parsing and pricing run client-side.</span>
+        {itemsError ? (
+          <>
+            <Warn />
+            <span>Couldn't load items database — {itemsError}. Refresh the page.</span>
+          </>
+        ) : itemsLoading ? (
+          <>
+            <Dot style={{ color: "var(--accent)" }} />
+            <span>Loading item database…</span>
+          </>
+        ) : (
+          <>
+            <Dot style={{ color: "var(--ok)" }} />
+            <span>Your hangar list never leaves this browser. Parsing and pricing run client-side.</span>
+          </>
+        )}
       </div>
     </section>
   );
