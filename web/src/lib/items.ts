@@ -40,7 +40,7 @@ export const EXAMPLE_PASTE = [
   "Drake\t2",
   "Large Shield Extender II\t12",
   "Damage Control II\t4",
-  "Scourge Fury Heavy Assault Missile\t4800",
+  "Scourge Rage Heavy Assault Missile\t4800",
   "Hobgoblin II\t10",
   "Nanite Repair Paste\t250",
   "PLEX\t500",

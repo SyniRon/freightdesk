@@ -334,6 +334,8 @@ button { font-family: inherit; }
 .cargo-row .cargo-name { color: var(--fg-1); }
 .cargo-row.cargo-bad .cargo-name { color: var(--bad); }
 .cargo-row.cargo-bad { background: oklch(from var(--bad) l c h / .05); }
+.cargo-row.cargo-warn { background: oklch(from var(--warn) l c h / .04); }
+.cargo-row.cargo-warn .cargo-name { color: oklch(from var(--warn) l c h / .9); }
 .cargo-sep {
   background: oklch(from var(--warn) l c h / .08);
   color: var(--warn);
@@ -1046,3 +1048,15 @@ button { font-family: inherit; }
 }
 .svc-rush:hover { background: oklch(from var(--accent) l c h / .1); }
 .svc-rush input[type="checkbox"] { accent-color: var(--accent); margin: 0; }
+.svc-coll-note {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: oklch(from var(--warn) l c h / .06);
+  border: 1px solid oklch(from var(--warn) l c h / .25);
+  color: var(--warn);
+  font-size: 12.5px;
+  border-radius: var(--r-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
