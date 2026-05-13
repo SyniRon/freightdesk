@@ -4,3 +4,4 @@ dist
 *.local
 .vite
 *.tsbuildinfo
+src/lib/services.generated.ts
