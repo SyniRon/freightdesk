@@ -70,9 +70,9 @@ describe("parseHangarPaste", () => {
 });
 
 describe("evaluateServices", () => {
-  // Use SERVICES[0] / `slc` (placeholder) at Task 3 time. After Task 5e, the
-  // dest id becomes `cjm6t`. Task 5d adds the post-rename coverage; these
-  // tests stay valid by avoiding any specific service-id lookup.
+  // Use SERVICES[0] / `slc` (placeholder) at Task 3 time. Task 5e renamed the
+  // dest id to `cj6mt`. Task 5d adds the post-rename coverage; these tests
+  // stay valid by avoiding any specific service-id lookup.
   const origin = LOCATIONS.find((l) => l.id === "jita44")!;
   const dest = LOCATIONS.find((l) => l.id === "slc") ?? LOCATIONS.find((l) => l.id === "cj6mt")!;
   // NOTE: minReward assertion below uses SERVICES[0].minReward — service-level
@@ -176,31 +176,31 @@ describe("applyFormula", () => {
 describe("evaluateServices with per-route formulas", () => {
   const adfu = () => SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
   const jita = LOCATIONS.find((l) => l.id === "jita44")!;
-  const cjm6t = LOCATIONS.find((l) => l.id === "cj6mt")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
 
-  it("applies max formula on C-JM6T → Jita", () => {
+  it("applies max formula on C-J6MT → Jita", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
-    const [q] = evaluateServices(parse, cjm6t, jita);
+    const [q] = evaluateServices(parse, cj6mt, jita);
     expect(q.eligible).toBe(true);
     expect(q.reward).toBe(Math.max(10_000 * 900, 500_000_000 * 0.005));
   });
 
-  it("applies rate-only on Jita → C-JM6T", () => {
+  it("applies rate-only on Jita → C-J6MT", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
-    const [q] = evaluateServices(parse, jita, cjm6t);
+    const [q] = evaluateServices(parse, jita, cj6mt);
     expect(q.reward).toBe(10_000 * 700);
   });
 
   it("enforces minReward floor", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 1, totalValue: 0 };
-    const [q] = evaluateServices(parse, jita, cjm6t);
+    const [q] = evaluateServices(parse, jita, cj6mt);
     expect(q.reward).toBe(adfu().minReward);  // 5_000_000
   });
 
   it("adds rushFee only when rushEnabled", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
-    const [off] = evaluateServices(parse, jita, cjm6t, false);
-    const [on]  = evaluateServices(parse, jita, cjm6t, true);
+    const [off] = evaluateServices(parse, jita, cj6mt, false);
+    const [on]  = evaluateServices(parse, jita, cj6mt, true);
     expect(on.reward - off.reward).toBe(250_000_000);
     expect(on.rushApplied).toBe(true);
     expect(off.rushApplied).toBe(false);
@@ -208,7 +208,7 @@ describe("evaluateServices with per-route formulas", () => {
 
   it("flags cap exceeded with split-contracts copy", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 999_999, totalValue: 0 };
-    const [q] = evaluateServices(parse, cjm6t, jita);
+    const [q] = evaluateServices(parse, cj6mt, jita);
     expect(q.eligible).toBe(false);
     expect(q.reasons[0]).toMatch(/split into multiple contracts/i);
   });

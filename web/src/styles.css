@@ -1028,3 +1028,21 @@ button { font-family: inherit; }
   .route-grid { grid-template-columns: 1fr; }
   .route-arrow { height: 24px; transform: rotate(90deg); }
 }
+
+/* ── Rush toggle ───────────────────────────────────────────────────────────── */
+.svc-rush {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: oklch(from var(--accent) l c h / .06);
+  border: 1px solid oklch(from var(--accent) l c h / .25);
+  color: var(--fg-2);
+  font-size: 12.5px;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  user-select: none;
+}
+.svc-rush:hover { background: oklch(from var(--accent) l c h / .1); }
+.svc-rush input[type="checkbox"] { accent-color: var(--accent); margin: 0; }

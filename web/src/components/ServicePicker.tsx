@@ -6,9 +6,11 @@ interface ServiceCardProps {
   q: Quote;
   selected: boolean;
   onSelect: () => void;
+  rushEnabled: boolean;
+  setRushEnabled: (v: boolean) => void;
 }
 
-function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
+function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: ServiceCardProps) {
   const [showCalc, setShowCalc] = useState(false);
   const stale = daysSince(q.service.updated) > 30;
   return (
@@ -46,10 +48,10 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
         <div className="svc-cell">
           <span className="svc-k">Rate</span>
           <span className="svc-v mono">
-            {q.route ?
-              (q.breakdown.formula?.kind === "flat"
+            {q.route && q.breakdown.formula
+              ? q.breakdown.formula.kind === "flat"
                 ? "flat"
-                : "ratePerM3" in (q.breakdown.formula ?? {}) ? `${(q.breakdown.formula as any).ratePerM3} / m³` : "—")
+                : `${q.breakdown.formula.ratePerM3} / m³`
               : "—"}
           </span>
         </div>
@@ -61,6 +63,17 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
           </span>
         </div>
       </div>
+
+      {q.rushFee > 0 && q.eligible && (
+        <label className="svc-rush" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={rushEnabled}
+            onChange={(e) => setRushEnabled(e.target.checked)}
+          />
+          <span>Rush (+{fmtISK(q.rushFee)} ISK)</span>
+        </label>
+      )}
 
       {!q.eligible && (
         <div className="svc-blocked">
@@ -113,9 +126,11 @@ interface ServicePickerProps {
   quotes: Quote[];
   selectedId: string | undefined;
   setSelectedId: (id: string) => void;
+  rushEnabled: boolean;
+  setRushEnabled: (v: boolean) => void;
 }
 
-export function ServicePicker({ quotes, selectedId, setSelectedId }: ServicePickerProps) {
+export function ServicePicker({ quotes, selectedId, setSelectedId, rushEnabled, setRushEnabled }: ServicePickerProps) {
   const anyEligible = quotes.some((q) => q.eligible);
   return (
     <section className="block">
@@ -142,6 +157,8 @@ export function ServicePicker({ quotes, selectedId, setSelectedId }: ServicePick
                 q={q}
                 selected={selectedId === q.service.id}
                 onSelect={() => setSelectedId(q.service.id)}
+                rushEnabled={rushEnabled}
+                setRushEnabled={setRushEnabled}
               />
             ))}
         </div>

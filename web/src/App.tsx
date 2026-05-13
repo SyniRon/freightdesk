@@ -43,6 +43,7 @@ export default function App() {
     resolveLocation(LS.get<unknown>("dest", null), "cj6mt"),
   );
   const [selectedSvc, setSelectedSvc] = useState<string>(() => LS.get<string>("svc", "adfu-kum-n-go"));
+  const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() =>
     LS.get<AppSettings>("settings", DEFAULT_SETTINGS),
@@ -53,6 +54,7 @@ export default function App() {
   useEffect(() => LS.set("origin", origin), [origin]);
   useEffect(() => LS.set("dest", dest), [dest]);
   useEffect(() => LS.set("svc", selectedSvc), [selectedSvc]);
+  useEffect(() => LS.set("rush", rushEnabled), [rushEnabled]);
   useEffect(() => LS.set("settings", settings), [settings]);
 
   // density + layout attributes (defaults baked in; ready for settings toggle)
@@ -63,7 +65,10 @@ export default function App() {
   }, []);
 
   const parse = useMemo(() => parseHangarPaste(raw), [raw]);
-  const quotes = useMemo(() => evaluateServices(parse, origin, dest), [parse, origin, dest]);
+  const quotes = useMemo(
+    () => evaluateServices(parse, origin, dest, rushEnabled),
+    [parse, origin, dest, rushEnabled],
+  );
   const selectedQuote =
     quotes.find((q) => q.service.id === selectedSvc) || quotes.find((q) => q.eligible);
 
@@ -134,6 +139,8 @@ export default function App() {
                 quotes={quotes}
                 selectedId={selectedQuote?.service.id}
                 setSelectedId={setSelectedSvc}
+                rushEnabled={rushEnabled}
+                setRushEnabled={setRushEnabled}
               />
             </Reveal>
             <Reveal
