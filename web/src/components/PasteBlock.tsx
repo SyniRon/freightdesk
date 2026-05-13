@@ -9,9 +9,10 @@ interface PasteBlockProps {
   itemsLoading?: boolean;
   itemsError?: string | null;
   pricesLoading?: boolean;
+  pricesError?: "rate-limited" | "server-error" | "network" | null;
 }
 
-export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, itemsError, pricesLoading }: PasteBlockProps) {
+export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, itemsError, pricesLoading, pricesError }: PasteBlockProps) {
   const items = parse.matched.length + parse.unmatched.length;
   return (
     <section className="block paste-block">
@@ -55,10 +56,14 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, it
             <span className="meter-k">Volume</span>
             <span className="meter-v mono">{fmtVol(parse.totalVol)}</span>
           </div>
-          <div className="meter-cell">
-            <span className="meter-k">Est. value</span>
+          <div className={"meter-cell " + (pricesError ? "meter-warn" : "")}>
+            <span className="meter-k">
+              {pricesError ? <><Warn /> Pricing</> : "Est. value"}
+            </span>
             <span className={"meter-v mono " + (pricesLoading ? "dim" : "")}>
-              {fmtISK(parse.totalValue)} ISK{pricesLoading ? " …" : ""}
+              {pricesError
+                ? (pricesError === "rate-limited" ? "rate-limited" : pricesError === "server-error" ? "unavailable" : "offline")
+                : `${fmtISK(parse.totalValue)} ISK${pricesLoading ? " …" : ""}`}
             </span>
           </div>
           {parse.unmatched.length > 0 && (

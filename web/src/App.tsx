@@ -15,7 +15,7 @@ import {
   resolveLocation,
   type Location,
 } from "./lib/logic";
-import { fetchPrices, priceFor, type PriceSource } from "./lib/pricing";
+import { fetchPrices, priceFor, PricingError, type PriceSource } from "./lib/pricing";
 import { LS } from "./lib/storage";
 import { AppHeader } from "./components/AppHeader";
 import { AboutFooter } from "./components/AboutFooter";
@@ -55,6 +55,7 @@ export default function App() {
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [pricesError, setPricesError] = useState<"rate-limited" | "server-error" | "network" | null>(null);
 
   // load items DB on mount
   useEffect(() => {
@@ -85,26 +86,44 @@ export default function App() {
   useEffect(() => {
     if (!parse.matched.length) {
       setPricesByTypeId(new Map());
+      setPricesError(null);
       return;
     }
     const ids = parse.matched.map((m) => m.id).filter((id): id is number => typeof id === "number" && id > 0);
     if (!ids.length) return;
-    setPricesLoading(true);
+
+    const controller = new AbortController();
     let cancelled = false;
-    fetchPrices(ids)
-      .then((m) => {
-        if (cancelled) return;
-        const src = settings.priceSource as PriceSource;
-        const out = new Map<number, number>();
-        for (const [id, p] of m) out.set(id, priceFor(p, src));
-        setPricesByTypeId(out);
-      })
-      .catch(() => {
-        // Pricing failure is non-fatal — leave prices at 0, reward formula
-        // still works on volume.
-      })
-      .finally(() => { if (!cancelled) setPricesLoading(false); });
-    return () => { cancelled = true; };
+
+    // Debounce: 400ms after the dep change settles
+    const debounceTimer = setTimeout(() => {
+      setPricesLoading(true);
+      setPricesError(null);
+      fetchPrices(ids, controller.signal)
+        .then((m) => {
+          if (cancelled) return;
+          const src = settings.priceSource as PriceSource;
+          const out = new Map<number, number>();
+          for (const [id, p] of m) out.set(id, priceFor(p, src));
+          setPricesByTypeId(out);
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          if ((e as { name?: string })?.name === "AbortError") return;
+          if (e instanceof PricingError) {
+            setPricesError(e.kind);
+          } else {
+            setPricesError("network");
+          }
+        })
+        .finally(() => { if (!cancelled) setPricesLoading(false); });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+      controller.abort();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parse.matched.map((m) => m.id).join(","), settings.priceSource]);
   // Note: dep on stringified ids — using parse.matched directly would re-fire on every render since the array reference changes.
@@ -198,6 +217,7 @@ export default function App() {
               itemsLoading={items === null && !itemsError}
               itemsError={itemsError}
               pricesLoading={pricesLoading}
+              pricesError={pricesError}
               onLoadExample={() => setRaw(EXAMPLE_PASTE)}
             />
             <Reveal present={hasParse} enterDelay={REVEAL_MS} exitDelay={3 * STAGGER_MS}>

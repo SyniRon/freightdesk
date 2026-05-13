@@ -20,7 +20,45 @@ interface FuzzworkAgg {
   sell: { percentile: string; median: string };
 }
 
-export async function fetchPrices(typeIds: number[]): Promise<Map<number, CachedPrice>> {
+export class PricingError extends Error {
+  constructor(public readonly kind: "rate-limited" | "server-error" | "network", public readonly status?: number) {
+    super(kind === "rate-limited" ? "Fuzzwork rate-limited (429)" :
+          kind === "server-error" ? `Fuzzwork server error (${status})` :
+          "Fuzzwork unreachable");
+    this.name = "PricingError";
+  }
+}
+
+// Retry helper — fetch with exponential backoff on 429 only.
+// Delays: 2s, 4s, 8s. Gives up after 3 retries.
+async function fetchWithBackoff(url: string, signal?: AbortSignal): Promise<Response> {
+  const RETRY_DELAYS = [2000, 4000, 8000];
+  let attempt = 0;
+  while (true) {
+    let r: Response;
+    try {
+      r = await fetch(url, { signal });
+    } catch (e) {
+      // Network failure (DNS, refused, timeout, aborted)
+      if ((e as { name?: string }).name === "AbortError") throw e;
+      throw new PricingError("network");
+    }
+    if (r.ok) return r;
+    if (r.status === 429 && attempt < RETRY_DELAYS.length) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, RETRY_DELAYS[attempt]);
+        signal?.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("aborted", "AbortError")); });
+      });
+      attempt++;
+      continue;
+    }
+    if (r.status === 429) throw new PricingError("rate-limited", 429);
+    if (r.status >= 500) throw new PricingError("server-error", r.status);
+    throw new PricingError("server-error", r.status);
+  }
+}
+
+export async function fetchPrices(typeIds: number[], signal?: AbortSignal): Promise<Map<number, CachedPrice>> {
   const now = Date.now();
   const stale = typeIds.filter((id) => {
     const c = cache.get(id);
@@ -31,8 +69,7 @@ export async function fetchPrices(typeIds: number[]): Promise<Map<number, Cached
   for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
     const chunk = unique.slice(i, i + CHUNK_SIZE);
     const url = `https://market.fuzzwork.co.uk/aggregates/?region=${JITA_REGION_ID}&types=${chunk.join(",")}`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`fuzzwork ${r.status}`);
+    const r = await fetchWithBackoff(url, signal);
     const data = (await r.json()) as Record<string, FuzzworkAgg>;
     for (const [idStr, agg] of Object.entries(data)) {
       const id = Number(idStr);

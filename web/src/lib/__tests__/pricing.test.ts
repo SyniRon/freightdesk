@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { __resetPricingCacheForTesting, fetchPrices, priceFor } from "../pricing";
+import { __resetPricingCacheForTesting, fetchPrices, priceFor, PricingError } from "../pricing";
 
 const FX = {
   "34": {
@@ -49,5 +49,57 @@ describe("priceFor", () => {
     expect(priceFor(p, "sell 5%")).toBe(2.80);
     expect(priceFor(p, "sell median")).toBe(4.50);
     expect(priceFor(p, "buy 95%")).toBe(3.94);
+  });
+});
+
+describe("fetchPrices error handling", () => {
+  beforeEach(() => __resetPricingCacheForTesting());
+
+  it("throws PricingError(rate-limited) when 429 persists past retries", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 429 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const p = fetchPrices([34]);
+    // Attach rejection handler immediately so the promise is not "unhandled"
+    const settled = p.catch((e) => e);
+    // Advance through all backoff delays
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(4000);
+    await vi.advanceTimersByTimeAsync(8000);
+    const err = await settled;
+    expect(err).toBeInstanceOf(PricingError);
+    expect((err as PricingError).kind).toBe("rate-limited");
+    expect(fetchMock).toHaveBeenCalledTimes(4); // initial + 3 retries
+    vi.useRealTimers();
+  });
+
+  it("recovers when 429 clears on retry", async () => {
+    vi.useFakeTimers();
+    const fxResp = { ok: true, json: async () => FX };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce(fxResp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const p = fetchPrices([34]);
+    await vi.advanceTimersByTimeAsync(2000);
+    const m = await p;
+    expect(m.get(34)?.sell.percentile).toBeCloseTo(2.8);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("throws PricingError(server-error) on 503 (no retry)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    await expect(fetchPrices([34])).rejects.toMatchObject({
+      kind: "server-error",
+      status: 503,
+    });
+  });
+
+  it("throws PricingError(network) on fetch rejection", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    await expect(fetchPrices([34])).rejects.toMatchObject({ kind: "network" });
   });
 });
