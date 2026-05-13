@@ -5,7 +5,7 @@ export function AboutFooter() {
   const [open, setOpen] = useState(false);
   const [thanks, setThanks] = useState(false);
   // STUB: real ISK destination (corp or character) to be filled in pre-launch.
-  const ISK_ADDRESS = "FreightDesk Holdings";
+  const ISK_ADDRESS = "Delve Time Unit Expenditures";
   return (
     <footer className="app-foot" id="about">
       <button className="about-toggle" onClick={() => setOpen((o) => !o)}>

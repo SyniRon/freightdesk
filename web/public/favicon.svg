@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="4" fill="#1a120b"/>
+  <text x="50%" y="55%" font-family="Space Grotesk, sans-serif" font-weight="600"
+        font-size="14" fill="#e89149" text-anchor="middle" dominant-baseline="middle"
+        letter-spacing="0.5">F/D</text>
+</svg>
