@@ -107,12 +107,6 @@ export function ContractCopy({ quote, dest }: ContractCopyProps) {
         <div>
           <span className="dim">Volume</span> <span className="mono">{vol} m³</span>
         </div>
-        <div>
-          <span className="dim">Days to complete</span>{" "}
-          <span className="mono">{Math.ceil(quote.service.etaHours / 24) + 1}</span>
-          <span className="sep">·</span>
-          <span className="dim">Expiration</span> <span className="mono">14 days</span>
-        </div>
       </div>
 
       {toast && (

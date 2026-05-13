@@ -2,6 +2,8 @@
 // Parses EVE hangar paste, calculates volumes, evaluates per-service quotes.
 
 import { ITEM_DB } from "./itemsDb";
+import type { RouteFormula, Service, ServiceRoute } from "./types";
+export type { RouteFormula, Service, ServiceRoute };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 export interface MatchedLine {
@@ -33,20 +35,6 @@ export interface Location {
   hub?: boolean;
   alliance?: boolean;
   custom?: boolean;
-}
-
-export interface Service {
-  id: string;
-  name: string;
-  tagline: string;
-  routes: [string, string][];
-  ratePerM3: number;
-  collateralPct: number;
-  minReward: number;
-  maxVol: number;
-  maxCollateral: number;
-  etaHours: number;
-  updated: string;
 }
 
 export interface Quote {
@@ -161,48 +149,55 @@ export const SERVICES: Service[] = [
     id: "alliance",
     name: "Alliance Logistics (SLC-K7)",
     tagline: "Internal alliance freight • discord ping on accept",
-    routes: [
-      ["jita44", "slc"],
-      ["slc", "jita44"],
-    ],
-    ratePerM3: 450,
-    collateralPct: 0.015, // 1.5%
     minReward: 5_000_000,
     maxVol: 360_000,
     maxCollateral: 8_000_000_000,
-    etaHours: 18,
+    routes: [
+      {
+        origin: "jita44",
+        destination: "slc",
+        formula: { kind: "sum", ratePerM3: 450, collateralPct: 0.015 },
+      },
+      {
+        origin: "slc",
+        destination: "jita44",
+        formula: { kind: "sum", ratePerM3: 450, collateralPct: 0.015 },
+      },
+    ],
     updated: "2026-05-09",
   },
   {
     id: "pushx",
     name: "PushX Public Freight",
     tagline: "Public hi-sec courier • automated quote",
-    routes: [
-      ["jita44", "amarr"], ["jita44", "rens"], ["jita44", "dodixie"],
-      ["amarr", "jita44"], ["rens", "jita44"], ["dodixie", "jita44"],
-    ],
-    ratePerM3: 850,
-    collateralPct: 0.0075,
     minReward: 1_000_000,
     maxVol: 360_000,
     maxCollateral: 20_000_000_000,
-    etaHours: 36,
+    routes: [
+      { origin: "jita44", destination: "amarr", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+      { origin: "jita44", destination: "rens",  formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+      { origin: "jita44", destination: "dodixie", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+      { origin: "amarr",  destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+      { origin: "rens",   destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+      { origin: "dodixie", destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
+    ],
     updated: "2026-04-22",
   },
   {
     id: "redfrog",
     name: "Red Frog Freight",
     tagline: "Hi-sec courier specialist • 1B collateral cap",
-    routes: [
-      ["jita44", "amarr"], ["jita44", "rens"], ["jita44", "dodixie"],
-      ["amarr", "jita44"], ["rens", "jita44"], ["dodixie", "jita44"],
-    ],
-    ratePerM3: 600,
-    collateralPct: 0.01,
     minReward: 800_000,
     maxVol: 60_000,
     maxCollateral: 1_000_000_000,
-    etaHours: 24,
+    routes: [
+      { origin: "jita44", destination: "amarr", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+      { origin: "jita44", destination: "rens",  formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+      { origin: "jita44", destination: "dodixie", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+      { origin: "amarr",  destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+      { origin: "rens",   destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+      { origin: "dodixie", destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
+    ],
     updated: "2026-03-15",
   },
 ];
@@ -217,10 +212,20 @@ export function evaluateServices(parse: ParseResult, origin: Location, dest: Loc
   const destId = dest?.id;
   return SERVICES.map((s) => {
     const reasons: string[] = [];
-    const routeOk = s.routes.some(([a, b]) => a === originId && b === destId);
+    const route = s.routes.find((r) => r.origin === originId && r.destination === destId);
+    const routeOk = route != null;
     const vol = parse.totalVol;
     const collateral = Math.max(parse.totalValue, 0);
-    const reward = Math.max(s.minReward, vol * s.ratePerM3 + collateral * s.collateralPct);
+
+    let reward = s.minReward ?? 0;
+    let volPart = 0;
+    let collPart = 0;
+    if (route && route.formula.kind === "sum") {
+      volPart = vol * route.formula.ratePerM3;
+      collPart = collateral * route.formula.collateralPct;
+      reward = Math.max(s.minReward ?? 0, volPart + collPart);
+    }
+
     if (!routeOk) {
       reasons.push(
         origin?.custom || dest?.custom
@@ -228,8 +233,9 @@ export function evaluateServices(parse: ParseResult, origin: Location, dest: Loc
           : "Doesn't service this route",
       );
     }
-    if (vol > s.maxVol) reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(s.maxVol)} cap`);
-    if (collateral > s.maxCollateral)
+    if (s.maxVol != null && vol > s.maxVol)
+      reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(s.maxVol)} cap`);
+    if (s.maxCollateral != null && collateral > s.maxCollateral)
       reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(s.maxCollateral)} cap`);
     const eligible = reasons.length === 0;
     return {
@@ -240,9 +246,9 @@ export function evaluateServices(parse: ParseResult, origin: Location, dest: Loc
       collateral,
       vol,
       breakdown: {
-        volPart: vol * s.ratePerM3,
-        collPart: collateral * s.collateralPct,
-        min: s.minReward,
+        volPart,
+        collPart,
+        min: s.minReward ?? 0,
       },
     };
   });

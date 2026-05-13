@@ -44,12 +44,12 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
           </span>
         </div>
         <div className="svc-cell">
-          <span className="svc-k">ETA</span>
-          <span className="svc-v mono">{q.service.etaHours}h</span>
-        </div>
-        <div className="svc-cell">
           <span className="svc-k">Rate</span>
-          <span className="svc-v mono">{q.service.ratePerM3} / m³</span>
+          <span className="svc-v mono">
+            {q.breakdown.volPart > 0 || q.vol === 0
+              ? `${(q.breakdown.volPart / (q.vol || 1)).toFixed(0)} / m³`
+              : "—"}
+          </span>
         </div>
         <div className="svc-cell">
           <span className="svc-k">Rates updated</span>
@@ -81,12 +81,16 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
       {showCalc && (
         <div className="svc-calc mono">
           <div>
-            <span className="dim">volume</span> {fmtVol(q.vol)} × {q.service.ratePerM3}/m³ ={" "}
+            <span className="dim">volume</span> {fmtVol(q.vol)} ×{" "}
+            {q.vol > 0 ? (q.breakdown.volPart / q.vol).toFixed(0) : "0"}/m³ ={" "}
             {fmtISKFull(q.breakdown.volPart)}
           </div>
           <div>
             <span className="dim">collateral</span> {fmtISKFull(q.collateral)} ×{" "}
-            {(q.service.collateralPct * 100).toFixed(2)}% = {fmtISKFull(q.breakdown.collPart)}
+            {q.collateral > 0
+              ? ((q.breakdown.collPart / q.collateral) * 100).toFixed(2)
+              : "0.00"}
+            % = {fmtISKFull(q.breakdown.collPart)}
           </div>
           <div className="svc-calc-sum">
             <span className="dim">reward</span> max({fmtISKFull(q.breakdown.min)}, sum) ={" "}

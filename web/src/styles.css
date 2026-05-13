@@ -595,7 +595,7 @@ button { font-family: inherit; }
   padding-top: 14px;
   border-top: 1px dashed var(--bd-1);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 .svc-cell { display: flex; flex-direction: column; gap: 3px; }
