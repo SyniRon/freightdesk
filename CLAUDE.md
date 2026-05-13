@@ -2,11 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Status: prototype frontend live (2026-05-13)
+## Status: SLC complete (live pending deploy)
 
-The frontend is ported from a Claude Design handoff bundle ("FreightDesk" — dark logistics-terminal aesthetic, copper accent, Space Grotesk + JetBrains Mono). End-to-end flow works against stubbed data: hangar paste parser, route picker with searchable combobox + custom-entry fallback, three stubbed services (Alliance Logistics / PushX / Red Frog) with eligibility filtering, four contract-window copy buttons (Destination / Shipper / Reward / Collateral) in EVE's Create Contract window order.
+Frontend done end-to-end: hangar paste → real SDE volumes (build-time pipeline) → live Fuzzwork prices (browser-direct, CORS-verified) → ADFU Kum N Go service eligibility (rate-only Jita→C-J6MT, max C-J6MT→Jita) → four contract-window copy buttons in EVE's field order (Destination / Shipper / Reward / Collateral). Rush-fee toggle adds 250M ISK per route. Cap warnings advise splitting contracts. Vitest covers parser, eligibility, pricing, formatters, storage (41 tests). Playwright covers the prod-build smoke flow (3 tests).
 
-No backend yet. Everything runs client-side; the only stubs are the data sources.
+Deploy artifacts in place: `Dockerfile` (multi-stage node→caddy), `Caddyfile`, `docker-compose.yml` (app + cloudflared sidecar). Live URL target: **https://freightdesk.syniron.com**. Awaiting Cloudflare Tunnel setup + first synicloud deploy.
+
+Service config: `web/services/*.yaml` → `build:services` script emits typed `services.generated.ts` at build time. Adding shipper #2 = drop a YAML, redeploy.
 
 Repo name is `eve-shipping-assistant`; **the product is branded "FreightDesk"** in the UI; design docs call it `eve-shipping-calc`. Same project, three names — the UI text is canonical for end users.
 
