@@ -10,9 +10,11 @@ import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import {
   evaluateServices,
   parseHangarPaste,
+  recomputeWithPrices,
   resolveLocation,
   type Location,
 } from "./lib/logic";
+import { fetchPrices, priceFor, type PriceSource } from "./lib/pricing";
 import { LS } from "./lib/storage";
 import { AppHeader } from "./components/AppHeader";
 import { AboutFooter } from "./components/AboutFooter";
@@ -50,6 +52,8 @@ export default function App() {
   );
   const [items, setItems] = useState<Record<string, ItemEntry> | null>(null);
   const [itemsError, setItemsError] = useState<string | null>(null);
+  const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
+  const [pricesLoading, setPricesLoading] = useState(false);
 
   // load items DB on mount
   useEffect(() => {
@@ -75,9 +79,48 @@ export default function App() {
     () => (items ? parseHangarPaste(raw, items) : { matched: [], unmatched: [], totalVol: 0, totalValue: 0 }),
     [raw, items],
   );
+
+  // Fetch prices from Fuzzwork when matched ids or priceSource changes.
+  useEffect(() => {
+    if (!parse.matched.length) {
+      setPricesByTypeId(new Map());
+      return;
+    }
+    const ids = parse.matched.map((m) => m.id).filter((id): id is number => typeof id === "number" && id > 0);
+    if (!ids.length) return;
+    setPricesLoading(true);
+    let cancelled = false;
+    fetchPrices(ids)
+      .then((m) => {
+        if (cancelled) return;
+        const src = settings.priceSource as PriceSource;
+        const out = new Map<number, number>();
+        for (const [id, p] of m) out.set(id, priceFor(p, src));
+        setPricesByTypeId(out);
+      })
+      .catch(() => {
+        // Pricing failure is non-fatal — leave prices at 0, reward formula
+        // still works on volume.
+      })
+      .finally(() => { if (!cancelled) setPricesLoading(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parse.matched.map((m) => m.id).join(","), settings.priceSource]);
+  // Note: dep on stringified ids — using parse.matched directly would re-fire on every render since the array reference changes.
+
+  const parsedCollOverride = (() => {
+    const n = parseFloat(settings.collOverride.replace(/,/g, ""));
+    return isNaN(n) || n <= 0 ? undefined : n;
+  })();
+
+  const pricedParse = useMemo(
+    () => recomputeWithPrices(parse, pricesByTypeId, parsedCollOverride),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [parse, pricesByTypeId, parsedCollOverride],
+  );
   const quotes = useMemo(
-    () => evaluateServices(parse, origin, dest, rushEnabled),
-    [parse, origin, dest, rushEnabled],
+    () => evaluateServices(pricedParse, origin, dest, rushEnabled),
+    [pricedParse, origin, dest, rushEnabled],
   );
   const selectedQuote =
     quotes.find((q) => q.service.id === selectedSvc) || quotes.find((q) => q.eligible);
@@ -90,7 +133,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedQuote?.service.id]);
 
-  const hasParse = parse.matched.length + parse.unmatched.length > 0;
+  const hasParse = pricedParse.matched.length + pricedParse.unmatched.length > 0;
 
   return (
     <div className="page" data-layout="single">
@@ -119,13 +162,14 @@ export default function App() {
             <PasteBlock
               raw={raw}
               setRaw={setRaw}
-              parse={parse}
+              parse={pricedParse}
               itemsLoading={items === null && !itemsError}
               itemsError={itemsError}
+              pricesLoading={pricesLoading}
               onLoadExample={() => setRaw(EXAMPLE_PASTE)}
             />
             <Reveal present={hasParse} enterDelay={REVEAL_MS} exitDelay={3 * STAGGER_MS}>
-              <ParsedSummary parse={parse} />
+              <ParsedSummary parse={pricedParse} />
             </Reveal>
           </div>
 

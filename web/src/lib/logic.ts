@@ -132,6 +132,29 @@ export function parseHangarPaste(raw: string, db: Record<string, ItemEntry>): Pa
   return { matched, unmatched, totalVol, totalValue };
 }
 
+/**
+ * Given a parsed paste and a typeID→price map, fill in `matched[i].price` and
+ * recompute totalValue. If collOverride is a positive number, it replaces the
+ * computed totalValue (this is the "Custom collateral override" setting).
+ */
+export function recomputeWithPrices(
+  parse: ParseResult,
+  prices: Map<number, number>,
+  collOverride?: number,
+): ParseResult {
+  let totalValue = 0;
+  const matched = parse.matched.map((m) => {
+    const p = prices.get(m.id) ?? 0;
+    totalValue += p * m.qty;
+    return { ...m, price: p };
+  });
+  return {
+    ...parse,
+    matched,
+    totalValue: collOverride != null && !isNaN(collOverride) && collOverride > 0 ? collOverride : totalValue,
+  };
+}
+
 // ─── Routes & services (stubbed, layout supports N) ─────────────────────────
 // sec: numeric security status (matches EVE's 1.0 → -1.0 scale).
 // Anything ≥ 0.5 is high-sec, 0.1–0.4 is low-sec, ≤ 0.0 is null-sec / wormhole.

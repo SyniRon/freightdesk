@@ -9,6 +9,7 @@ import {
   secTier,
   resolveLocation,
   makeCustomLocation,
+  recomputeWithPrices,
   LOCATIONS,
   SERVICES,
 } from "../logic";
@@ -208,5 +209,24 @@ describe("evaluateServices with per-route formulas", () => {
     const [q] = evaluateServices(parse, cj6mt, jita);
     expect(q.eligible).toBe(false);
     expect(q.reasons[0]).toMatch(/split into multiple contracts/i);
+  });
+});
+
+describe("recomputeWithPrices", () => {
+  it("fills prices and totals from the typeID map", () => {
+    const parse = parseHangarPaste("Drake\t2", TEST_DB);
+    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]));
+    expect(out.totalValue).toBe(112_000_000);
+    expect(out.matched[0].price).toBe(56_000_000);
+  });
+  it("applies collOverride when positive", () => {
+    const parse = parseHangarPaste("Drake\t2", TEST_DB);
+    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), 999_000_000);
+    expect(out.totalValue).toBe(999_000_000);
+  });
+  it("ignores zero or negative collOverride", () => {
+    const parse = parseHangarPaste("Drake\t2", TEST_DB);
+    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), 0);
+    expect(out.totalValue).toBe(112_000_000);
   });
 });

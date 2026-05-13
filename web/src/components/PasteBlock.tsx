@@ -8,9 +8,10 @@ interface PasteBlockProps {
   onLoadExample: () => void;
   itemsLoading?: boolean;
   itemsError?: string | null;
+  pricesLoading?: boolean;
 }
 
-export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, itemsError }: PasteBlockProps) {
+export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, itemsError, pricesLoading }: PasteBlockProps) {
   const items = parse.matched.length + parse.unmatched.length;
   return (
     <section className="block paste-block">
@@ -56,7 +57,9 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, it
           </div>
           <div className="meter-cell">
             <span className="meter-k">Est. value</span>
-            <span className="meter-v mono">{fmtISK(parse.totalValue)} ISK</span>
+            <span className={"meter-v mono " + (pricesLoading ? "dim" : "")}>
+              {fmtISK(parse.totalValue)} ISK{pricesLoading ? " …" : ""}
+            </span>
           </div>
           {parse.unmatched.length > 0 && (
             <div className="meter-cell meter-warn">
