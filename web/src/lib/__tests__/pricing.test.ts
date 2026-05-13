@@ -46,9 +46,9 @@ describe("priceFor", () => {
     at: 0,
   };
   it("maps source → field", () => {
-    expect(priceFor(p, "sell 5%")).toBe(2.80);
-    expect(priceFor(p, "sell median")).toBe(4.50);
-    expect(priceFor(p, "buy 95%")).toBe(3.94);
+    expect(priceFor(p, "buy")).toBe(3.94);
+    expect(priceFor(p, "sell")).toBe(2.80);
+    expect(priceFor(p, "split")).toBeCloseTo((3.94 + 2.80) / 2);
   });
 });
 

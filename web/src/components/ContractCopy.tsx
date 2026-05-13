@@ -1,7 +1,7 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
 import type { Location, Quote } from "../lib/logic";
 import { track } from "../lib/analytics";
-import { Check, Copy } from "./icons";
+import { Check, Copy, Warn } from "./icons";
 
 interface CopyRowProps {
   label: string;
@@ -42,9 +42,10 @@ interface ContractCopyProps {
   quote: Quote | undefined;
   origin: Location;
   dest: Location;
+  warnings: { unmatched: number; noPriceItems: number };
 }
 
-export function ContractCopy({ quote, origin, dest }: ContractCopyProps) {
+export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProps) {
   const [toast, copy] = useClipboard();
   const trackedCopy = (value: string, label: string) => {
     copy(value, label);
@@ -83,6 +84,21 @@ export function ContractCopy({ quote, origin, dest }: ContractCopyProps) {
           <p>Paste these directly into EVE's Create Contract window. Match the field order.</p>
         </div>
       </header>
+
+      {(warnings.unmatched > 0 || warnings.noPriceItems > 0) && (
+        <div className="copy-critical-warn">
+          <Warn />
+          <div>
+            <strong>Contract values may be inaccurate:</strong>
+            {warnings.unmatched > 0 && (
+              <div>{warnings.unmatched} unmatched line{warnings.unmatched === 1 ? "" : "s"} — volume incomplete, total m³ undercounted.</div>
+            )}
+            {warnings.noPriceItems > 0 && (
+              <div>{warnings.noPriceItems} item{warnings.noPriceItems === 1 ? "" : "s"} missing price data — collateral undervalued. Review parsed cargo above or adjust the collateral % in settings.</div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="copy-grid">
         <CopyRow

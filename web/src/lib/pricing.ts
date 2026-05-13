@@ -1,7 +1,7 @@
 // Fuzzwork aggregates client. CORS verified — direct from browser.
 // Caches by typeID with 5min TTL matching Fuzzwork's Cache-Control header.
 
-export type PriceSource = "sell 5%" | "sell median" | "buy 95%";
+export type PriceSource = "buy" | "split" | "sell";
 
 const JITA_REGION_ID = 10000002;
 const TTL_MS = 5 * 60 * 1000;
@@ -91,9 +91,9 @@ export async function fetchPrices(typeIds: number[], signal?: AbortSignal): Prom
 
 export function priceFor(p: CachedPrice, source: PriceSource): number {
   switch (source) {
-    case "sell 5%":     return p.sell.percentile;   // lowest 5% sell — optimistic
-    case "sell median": return p.sell.median;
-    case "buy 95%":     return p.buy.percentile;    // top 5% buy — conservative
+    case "buy":   return p.buy.percentile;                               // top 5% buy — conservative
+    case "sell":  return p.sell.percentile;                              // lowest 5% sell — optimistic
+    case "split": return (p.buy.percentile + p.sell.percentile) / 2;    // true buy/sell midpoint
   }
 }
 

@@ -1060,3 +1060,22 @@ button { font-family: inherit; }
   align-items: center;
   gap: 8px;
 }
+
+/* ── Critical warning banner (ContractCopy) ───────────────────────────────── */
+.copy-critical-warn {
+  margin-bottom: var(--gap-block-inner);
+  padding: 12px 16px;
+  background: oklch(from var(--bad) l c h / .1);
+  border: 1px solid oklch(from var(--bad) l c h / .45);
+  border-radius: var(--r-1);
+  color: var(--bad);
+  font-size: 13px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.copy-critical-warn strong { color: oklch(from var(--bad) l c h / 1.1); display: block; margin-bottom: 4px; }
+.copy-critical-warn > svg { flex-shrink: 0; margin-top: 2px; }
+.copy-critical-warn > div { flex: 1; }
+.copy-critical-warn > div > div { margin-top: 2px; }

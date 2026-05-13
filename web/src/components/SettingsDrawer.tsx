@@ -2,8 +2,8 @@ import { LOCATIONS } from "../lib/logic";
 import { Arrow } from "./icons";
 
 export interface AppSettings {
-  priceSource: string;
-  collOverride: string;
+  priceSource: "buy" | "split" | "sell";
+  collateralPct: number;        // was: collOverride: string
   defaultOrigin: string;
   defaultDest: string;
 }
@@ -32,31 +32,36 @@ export function SettingsDrawer({ open, onClose, settings, setSettings }: Setting
         <div className="drawer-body">
           <div className="setting">
             <div className="setting-k">Jita price source</div>
-            <div className="setting-d">
-              Used to estimate collateral. We never call out for your hangar — only for type prices.
-            </div>
+            <div className="setting-d">Determines how cargo value is estimated for collateral. We never call out for your hangar — only for type prices.</div>
             <div className="seg">
-              {["sell 5%", "sell median", "buy 95%"].map((opt) => (
+              {(["buy", "split", "sell"] as const).map((opt) => (
                 <button
                   key={opt}
                   className={"seg-b " + (settings.priceSource === opt ? "is-on" : "")}
                   onClick={() => setSettings({ ...settings, priceSource: opt })}
-                >
-                  {opt}
-                </button>
+                >{opt[0].toUpperCase() + opt.slice(1)}</button>
               ))}
             </div>
           </div>
           <div className="setting">
-            <div className="setting-k">Custom collateral override</div>
+            <div className="setting-k">Collateral as % of value</div>
             <div className="setting-d">
-              Force a specific collateral instead of the Jita estimate. Blank = auto.
+              Contract collateral = estimated cargo value × this percentage. Default 120% gives
+              a 20% buffer over Jita value so price volatility doesn't underwater the contract.
             </div>
             <input
               className="text-input mono"
-              placeholder="auto"
-              value={settings.collOverride}
-              onChange={(e) => setSettings({ ...settings, collOverride: e.target.value })}
+              type="number"
+              min="100"
+              max="500"
+              step="5"
+              value={settings.collateralPct}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                if (!isNaN(n) && n >= 50 && n <= 1000) {
+                  setSettings({ ...settings, collateralPct: n });
+                }
+              }}
             />
           </div>
           <div className="setting">

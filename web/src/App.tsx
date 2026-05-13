@@ -29,8 +29,8 @@ import { ServicePicker } from "./components/ServicePicker";
 import { SettingsDrawer, type AppSettings } from "./components/SettingsDrawer";
 
 const DEFAULT_SETTINGS: AppSettings = {
-  priceSource: "sell 5%",
-  collOverride: "",
+  priceSource: "sell",
+  collateralPct: 120,
   defaultOrigin: "jita44",
   defaultDest: "cj6mt",
 };
@@ -48,9 +48,21 @@ export default function App() {
   const [selectedSvc, setSelectedSvc] = useState<string>(() => LS.get<string>("svc", "adfu-kum-n-go"));
   const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>(() =>
-    LS.get<AppSettings>("settings", DEFAULT_SETTINGS),
-  );
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const raw = LS.get<any>("settings", DEFAULT_SETTINGS);
+    // Migrate: old shape had "sell 5%"/"sell median"/"buy 95%" + collOverride string.
+    const priceSourceMap: Record<string, AppSettings["priceSource"]> = {
+      "sell 5%": "sell",
+      "sell median": "split",
+      "buy 95%": "buy",
+    };
+    return {
+      priceSource: priceSourceMap[raw?.priceSource] ?? (["buy", "split", "sell"].includes(raw?.priceSource) ? raw.priceSource : DEFAULT_SETTINGS.priceSource),
+      collateralPct: typeof raw?.collateralPct === "number" && raw.collateralPct > 0 ? raw.collateralPct : DEFAULT_SETTINGS.collateralPct,
+      defaultOrigin: raw?.defaultOrigin ?? DEFAULT_SETTINGS.defaultOrigin,
+      defaultDest: raw?.defaultDest ?? DEFAULT_SETTINGS.defaultDest,
+    };
+  });
   const [items, setItems] = useState<Record<string, ItemEntry> | null>(null);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
@@ -128,15 +140,9 @@ export default function App() {
   }, [parse.matched.map((m) => m.id).join(","), settings.priceSource]);
   // Note: dep on stringified ids — using parse.matched directly would re-fire on every render since the array reference changes.
 
-  const parsedCollOverride = (() => {
-    const n = parseFloat(settings.collOverride.replace(/,/g, ""));
-    return isNaN(n) || n <= 0 ? undefined : n;
-  })();
-
   const pricedParse = useMemo(
-    () => recomputeWithPrices(parse, pricesByTypeId, parsedCollOverride),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parse, pricesByTypeId, parsedCollOverride],
+    () => recomputeWithPrices(parse, pricesByTypeId, settings.collateralPct),
+    [parse, pricesByTypeId, settings.collateralPct],
   );
   const quotes = useMemo(
     () => evaluateServices(pricedParse, origin, dest, rushEnabled),
@@ -152,6 +158,11 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedQuote?.service.id]);
+
+  const contractWarnings = useMemo(() => ({
+    unmatched: pricedParse.unmatched.length,
+    noPriceItems: pricedParse.matched.filter((m) => m.price === 0).length,
+  }), [pricedParse]);
 
   const hasParse = pricedParse.matched.length + pricedParse.unmatched.length > 0;
 
@@ -256,7 +267,7 @@ export default function App() {
               enterDelay={REVEAL_MS + 3 * STAGGER_MS}
               exitDelay={0}
             >
-              <ContractCopy quote={selectedQuote} origin={origin} dest={dest} />
+              <ContractCopy quote={selectedQuote} origin={origin} dest={dest} warnings={contractWarnings} />
             </Reveal>
           </div>
         </main>

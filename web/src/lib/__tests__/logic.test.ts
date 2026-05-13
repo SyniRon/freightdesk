@@ -213,20 +213,21 @@ describe("evaluateServices with per-route formulas", () => {
 });
 
 describe("recomputeWithPrices", () => {
-  it("fills prices and totals from the typeID map", () => {
+  it("fills prices, totals, and 120% collateral by default", () => {
     const parse = parseHangarPaste("Drake\t2", TEST_DB);
     const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]));
     expect(out.totalValue).toBe(112_000_000);
+    expect(out.collateral).toBe(Math.round(112_000_000 * 1.2));
     expect(out.matched[0].price).toBe(56_000_000);
   });
-  it("applies collOverride when positive", () => {
+  it("applies custom collateralPct", () => {
     const parse = parseHangarPaste("Drake\t2", TEST_DB);
-    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), 999_000_000);
-    expect(out.totalValue).toBe(999_000_000);
+    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), 150);
+    expect(out.collateral).toBe(Math.round(112_000_000 * 1.5));
   });
-  it("ignores zero or negative collOverride", () => {
+  it("falls back to 120% when collateralPct is invalid", () => {
     const parse = parseHangarPaste("Drake\t2", TEST_DB);
-    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), 0);
-    expect(out.totalValue).toBe(112_000_000);
+    const out = recomputeWithPrices(parse, new Map([[24698, 56_000_000]]), -5);
+    expect(out.collateral).toBe(Math.round(112_000_000 * 1.2));
   });
 });

@@ -27,7 +27,8 @@ export interface ParseResult {
   matched: MatchedLine[];
   unmatched: UnmatchedLine[];
   totalVol: number;
-  totalValue: number;
+  totalValue: number;       // raw cargo value (sum of price × qty)
+  collateral?: number;      // contract collateral = totalValue × (collateralPct / 100). Populated by recomputeWithPrices.
 }
 
 export interface Location {
@@ -133,14 +134,15 @@ export function parseHangarPaste(raw: string, db: Record<string, ItemEntry>): Pa
 }
 
 /**
- * Given a parsed paste and a typeID→price map, fill in `matched[i].price` and
- * recompute totalValue. If collOverride is a positive number, it replaces the
- * computed totalValue (this is the "Custom collateral override" setting).
+ * Given a parsed paste and a typeID→price map, fill in matched[i].price and
+ * compute totalValue + collateral. Collateral is set to a percentage of
+ * estimated value (default 120% = 20% buffer above market) so the contract
+ * has headroom over volatility.
  */
 export function recomputeWithPrices(
   parse: ParseResult,
   prices: Map<number, number>,
-  collOverride?: number,
+  collateralPct: number = 120,
 ): ParseResult {
   let totalValue = 0;
   const matched = parse.matched.map((m) => {
@@ -148,10 +150,12 @@ export function recomputeWithPrices(
     totalValue += p * m.qty;
     return { ...m, price: p };
   });
+  const pct = isFinite(collateralPct) && collateralPct > 0 ? collateralPct : 120;
   return {
     ...parse,
     matched,
-    totalValue: collOverride != null && !isNaN(collOverride) && collOverride > 0 ? collOverride : totalValue,
+    totalValue,
+    collateral: Math.round(totalValue * (pct / 100)),
   };
 }
 
@@ -198,7 +202,7 @@ export function evaluateServices(
   return SERVICES.map((s): Quote => {
     const route = s.routes.find((r) => r.origin === origin.id && r.destination === dest.id);
     const vol = parse.totalVol;
-    const collateral = Math.max(parse.totalValue, 0);
+    const collateral = Math.max(parse.collateral ?? parse.totalValue, 0);
     const reasons: string[] = [];
 
     if (!route) {
