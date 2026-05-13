@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prebuild": "(test -f public/items.json || pnpm build:sde) && pnpm build:services",
     "preview": "vite preview --host",
+    "build:sde": "tsx scripts/build-sde.ts",
     "build:services": "tsx scripts/build-services.ts",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -19,9 +21,11 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/adm-zip": "^0.5.8",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "adm-zip": "^0.5.17",
     "jsdom": "^29.1.1",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",

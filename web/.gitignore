@@ -5,3 +5,6 @@ dist
 .vite
 *.tsbuildinfo
 src/lib/services.generated.ts
+public/items.json
+scripts/cache/*
+!scripts/cache/.gitkeep
