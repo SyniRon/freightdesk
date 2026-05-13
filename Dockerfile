@@ -3,6 +3,8 @@ FROM node:24-alpine AS builder
 ENV CI=true
 RUN corepack enable
 WORKDIR /app/web
+ARG VITE_UMAMI_WEBSITE_ID
+ENV VITE_UMAMI_WEBSITE_ID=${VITE_UMAMI_WEBSITE_ID}
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./

@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
     restart: unless-stopped
     expose:
       - "8080"
@@ -14,3 +17,40 @@ services:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
       - app
+
+  # ─── Analytics ───────────────────────────────────────────────────────────
+  # Umami admin is bound to the Tailscale IP only (UMAMI_BIND in .env).
+  # Tracking script is served on the same domain via Caddy reverse-proxy below.
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+      DISABLE_TELEMETRY: "1"
+    ports:
+      # Admin UI: Tailscale-only. UMAMI_BIND defaults to 127.0.0.1 if unset
+      # (safe for local dev). On synicloud, set to the Tailscale interface IP.
+      - "${UMAMI_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      umami-db:
+        condition: service_healthy
+
+  umami-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
+    volumes:
+      - umami-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  umami-pgdata:

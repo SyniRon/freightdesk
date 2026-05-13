@@ -58,6 +58,25 @@ ssh claudeuser@synicloud "cd /opt/syni/stacks/freightdesk && sudo git pull && do
 
 The image build runs the SDE + ESI pipeline inside the container (~5 minute first build).
 
+## Analytics
+
+Self-hosted [Umami](https://umami.is) runs alongside the app via `docker compose`.
+The admin UI is bound to the host's Tailscale interface only — no public exposure.
+
+**First-time setup** (after the stack is up):
+
+1. Find the synicloud Tailscale IP: `ssh claudeuser@synicloud "tailscale ip -4"`
+2. Set `UMAMI_BIND=<that IP>` in `/opt/syni/stacks/freightdesk/.env` and `docker compose up -d`
+3. From a Tailscale-connected device, visit `http://<that IP>:3000`
+4. Log in (default `admin` / `umami`) — **change the password immediately** in Settings → Account
+5. Settings → Websites → Add → name "FreightDesk", domain "freightdesk.syniron.com"
+6. Copy the website UUID, set `VITE_UMAMI_WEBSITE_ID=<uuid>` in `.env`
+7. `docker compose up -d --build` to rebake the bundle with the tracking script
+
+**Privacy:** No PII, no third-party. Hangar contents never reach Umami — only
+metadata events (paste-parsed with volume bucket, route changed, service selected,
+copy clicked with field name).
+
 ## Contributing
 
 Rate cards and routes live in `web/services/*.yaml`. PRs welcome. The `updated` field
