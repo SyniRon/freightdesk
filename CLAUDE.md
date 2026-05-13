@@ -94,10 +94,13 @@ web/
     App.tsx               root state, persistence, Reveal-animated section flow
     styles.css            all styles (single file, ~1030 lines, copied verbatim from design)
     lib/
-      itemsDb.ts          STUB: ~40 items → {vol, price}. Replace with Fuzzwork + SDE.
-      logic.ts            parser, services, locations, formatters, eligibility eval
+      items.ts            async loader for /items.json (build-time SDE+ESI output)
+      logic.ts            parser, applyFormula, evaluateServices, recomputeWithPrices, formatters
+      pricing.ts          Fuzzwork client w/ 200-id chunking + 5min cache
       storage.ts          localStorage helpers (eveship.* keys)
+      types.ts            RouteFormula / ServiceRoute / Service discriminated unions
       useClipboard.ts     clipboard + toast
+      services.generated.ts  build output from services/*.yaml (gitignored)
     components/
       icons.tsx           inline SVG strokes (no icon library)
       Reveal.tsx          enter/exit animation primitive (grid-rows collapse + fade)
@@ -114,16 +117,20 @@ web/
       AboutFooter.tsx     about + GitHub links + ISK tip jar + CCP disclaimer
 ```
 
-## Stubs that need wiring (in priority order)
+## Wired vs. still-stubbed
 
-| Stub | Where | Real source / plan |
-|---|---|---|
-| Item DB (typeID → volume + price) | `web/src/lib/itemsDb.ts` | Fuzzwork market API + CCP SDE JSONL. Reprocessing Helper has the full pattern, including ESI enrichment fallback for modules/drones/subsystems/fighters. |
-| Service rates, caps, routes | `SERVICES` in `web/src/lib/logic.ts` | Per-service YAML/JSON config files under `services/` (post-SLC). `updated` field reads from `git log -1 --format=%ai <file>` at build time. |
-| Location preset list | `LOCATIONS` in `web/src/lib/logic.ts` | ESI `/universe/systems` + `/universe/stations` for trade hubs; alliance staging is hardcoded (SLC-K7) until the OPSEC question on alliance-Upwell-publishing is resolved. |
-| Location free-text search beyond presets | `LOCATIONS.filter` inside `LocationCombo` | Debounced ESI `/search` or alliance-side system list. Custom-typed entries continue to be supported as a fallback. Data shape is `{id, short, name, sec, hub?, alliance?, custom?}` — don't break it. |
-| Jita price source toggle (UI exists, not wired) | `SettingsDrawer` `priceSource` setting | Fuzzwork `/aggregates` — values `sell 5%`, `sell median`, `buy 95%` already match the standard query shape. |
-| ISK tip-jar destination | `ISK_ADDRESS` in `AboutFooter.tsx` | Real corp or character name. |
+Landed in SLC:
+- **Item DB** — built from CCP SDE at build time via `scripts/build-sde.ts` with ESI enrichment for cats 6/7/18/32/87 (ships, modules, drones, subsystems, fighters). Output `web/public/items.json` (~25k items, gitignored). Loaded at runtime by `web/src/lib/items.ts`.
+- **Service rates / caps / routes** — `web/services/*.yaml` → `scripts/build-services.ts` → `web/src/lib/services.generated.ts`. `updated` derived from `git log -1 --format=%cs`. First service: `services/adfu-kum-n-go.yaml`.
+- **Jita pricing** — Fuzzwork aggregates, browser-direct (CORS verified `*`), 200-id chunking, 5min in-mem cache. Price source toggle wired (sell 5% / sell median / buy 95%).
+- **Tip-jar destination** — `Delve Time Unit Expenditures` in `AboutFooter.tsx`.
+
+Still stubbed / post-SLC:
+- **Location preset list** — `LOCATIONS` in `web/src/lib/logic.ts` still hand-curated. Replace with ESI `/universe/systems` + `/universe/stations` for trade hubs when shipper #2 needs more origins.
+- **Location free-text search beyond presets** — `LocationCombo` filters the preset list. Custom-typed entries flow through as `{custom: true}` and services correctly mark them ineligible. Wire to debounced ESI `/search` when alliance-structure picker scope returns.
+- **Alliance structure mapping** — hardcoded to C-J6MT in LOCATIONS. The OPSEC vs. coverage tradeoff (Big unresolved design question above) stays deferred to v2.
+- **Real "rates last updated" surfacing in the UI** — service config has the date but the UI doesn't render it prominently yet (small text inside the show-calc breakdown only).
+- **Analytics** — out of SLC scope. Plausible/Umami container post-launch.
 
 ## Deliberate omissions vs. the design bundle
 
