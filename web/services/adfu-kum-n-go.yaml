@@ -1,0 +1,26 @@
+id: adfu-kum-n-go
+name: ADFU Kum N Go Transport Group
+tagline: Alliance freight • Delve
+
+# Service-level defaults
+minReward: 5000000
+maxVol: 350000
+# (no maxCollateral — service does not cap collateral)
+
+routes:
+  # C-JM6T → Jita: max(vol×rate, collateral×%)
+  - origin: cjm6t
+    destination: jita44
+    formula:
+      kind: max
+      ratePerM3: 900
+      collateralPct: 0.005    # 0.5%
+    rushFee: 250000000        # +250M ISK
+
+  # Jita → C-JM6T: vol×rate only (no collateral component)
+  - origin: jita44
+    destination: cjm6t
+    formula:
+      kind: rate-only
+      ratePerM3: 700
+    rushFee: 250000000
