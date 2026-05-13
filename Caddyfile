@@ -1,0 +1,9 @@
+:8080 {
+    root * /srv
+    encode gzip zstd
+    file_server
+    # SPA fallback — every unknown path returns index.html so client-side routing works
+    try_files {path} /index.html
+    header /assets/* Cache-Control "public, max-age=31536000, immutable"
+    header /items.json Cache-Control "public, max-age=86400"
+}
