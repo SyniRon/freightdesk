@@ -11,7 +11,8 @@
     "build:sde": "tsx scripts/build-sde.ts",
     "build:services": "tsx scripts/build-services.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "cd ../e2e && pnpm exec playwright test"
   },
   "dependencies": {
     "react": "^18.3.1",
