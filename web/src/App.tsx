@@ -29,7 +29,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   priceSource: "sell 5%",
   collOverride: "",
   defaultOrigin: "jita44",
-  defaultDest: "cjm6t",
+  defaultDest: "cj6mt",
 };
 
 const ACCENT = "#e89149";
@@ -40,7 +40,7 @@ export default function App() {
     resolveLocation(LS.get<unknown>("origin", null), "jita44"),
   );
   const [dest, setDest] = useState<Location>(() =>
-    resolveLocation(LS.get<unknown>("dest", null), "cjm6t"),
+    resolveLocation(LS.get<unknown>("dest", null), "cj6mt"),
   );
   const [selectedSvc, setSelectedSvc] = useState<string>(() => LS.get<string>("svc", "adfu-kum-n-go"));
   const [settingsOpen, setSettingsOpen] = useState(false);

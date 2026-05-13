@@ -74,7 +74,7 @@ describe("evaluateServices", () => {
   // dest id becomes `cjm6t`. Task 5d adds the post-rename coverage; these
   // tests stay valid by avoiding any specific service-id lookup.
   const origin = LOCATIONS.find((l) => l.id === "jita44")!;
-  const dest = LOCATIONS.find((l) => l.id === "slc") ?? LOCATIONS.find((l) => l.id === "cjm6t")!;
+  const dest = LOCATIONS.find((l) => l.id === "slc") ?? LOCATIONS.find((l) => l.id === "cj6mt")!;
   // NOTE: minReward assertion below uses SERVICES[0].minReward — service-level
   // value. If Task 5c moves minReward onto routes only, switch to a route lookup.
 
@@ -176,7 +176,7 @@ describe("applyFormula", () => {
 describe("evaluateServices with per-route formulas", () => {
   const adfu = () => SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
   const jita = LOCATIONS.find((l) => l.id === "jita44")!;
-  const cjm6t = LOCATIONS.find((l) => l.id === "cjm6t")!;
+  const cjm6t = LOCATIONS.find((l) => l.id === "cj6mt")!;
 
   it("applies max formula on C-JM6T → Jita", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };

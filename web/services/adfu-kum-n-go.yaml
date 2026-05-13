@@ -8,8 +8,8 @@ maxVol: 350000
 # (no maxCollateral — service does not cap collateral)
 
 routes:
-  # C-JM6T → Jita: max(vol×rate, collateral×%)
-  - origin: cjm6t
+  # C-J6MT → Jita: max(vol×rate, collateral×%)
+  - origin: cj6mt
     destination: jita44
     formula:
       kind: max
@@ -17,9 +17,9 @@ routes:
       collateralPct: 0.005    # 0.5%
     rushFee: 250000000        # +250M ISK
 
-  # Jita → C-JM6T: vol×rate only (no collateral component)
+  # Jita → C-J6MT: vol×rate only (no collateral component)
   - origin: jita44
-    destination: cjm6t
+    destination: cj6mt
     formula:
       kind: rate-only
       ratePerM3: 700

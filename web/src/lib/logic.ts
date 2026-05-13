@@ -139,7 +139,7 @@ export const LOCATIONS: Location[] = [
   { id: "amarr", name: "Amarr VIII (Oris) - Emperor Family Academy", short: "Amarr", hub: true, sec: 1.0 },
   { id: "rens", name: "Rens VI - Moon 8 - Brutor Tribe Treasury", short: "Rens", hub: true, sec: 0.9 },
   { id: "dodixie", name: "Dodixie IX - Moon 20 - Federation Navy Assembly", short: "Dodixie", hub: true, sec: 0.9 },
-  { id: "cjm6t", name: "C-JM6T - Alliance Staging Keepstar", short: "C-JM6T", hub: false, alliance: true, sec: -0.4 },
+  { id: "cj6mt", name: "C-J6MT - 1st Taj Mahgoon", short: "C-J6MT", hub: false, alliance: true, sec: -0.4 },
 ];
 
 export interface SecTierInfo {
