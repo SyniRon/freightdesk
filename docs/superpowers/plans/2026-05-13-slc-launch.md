@@ -4,16 +4,22 @@
 
 **Goal:** Ship FreightDesk to `freightdesk.syniron.com` with a hangar-paste → contract-values flow for one alliance shipper (Delve TUE), Jita ↔ alliance staging only, by the Sunday SLC deadline.
 
-**Architecture:** Static Vite/React/TS bundle served by a Caddy container on synicloud behind Cloudflare Tunnel — no Go backend. Item volumes come from a build-time SDE+ESI pipeline emitting `web/public/items.json`; live prices come from Fuzzwork aggregates fetched directly from the browser (CORS verified `*`).
+**Architecture:** Static Vite/React/TS bundle served by a Caddy container on synicloud behind Cloudflare Tunnel — no Go backend. Item volumes come from a build-time SDE+ESI pipeline emitting `web/public/items.json`; live prices come from Fuzzwork aggregates fetched directly from the browser (CORS verified `*`). Service config (rates, caps, routes) lives in versioned YAML files under `web/services/` and is compiled at build time into a typed module — adding shipper #2 = drop a YAML, redeploy.
 
-**Tech Stack:** Vite 5 + React 18 + TypeScript 5, pnpm. Vitest for unit tests, Playwright for E2E (system Chromium snap, per global CLAUDE.md). Build-time SDE pipeline in Node/TypeScript. Caddy 2 (static `file_server`) + cloudflared for production. Stack lives at `/opt/syni/stacks/freightdesk/` on synicloud.
+**Tech Stack:** Vite 5 + React 18 + TypeScript 5, pnpm. Vitest for unit tests, Playwright for E2E (system Chromium snap, per global CLAUDE.md). Build-time SDE pipeline + build-time service-config pipeline, both Node/TypeScript via `tsx`. `yaml` package for YAML parsing. Caddy 2 (static `file_server`) + cloudflared for production. Stack lives at `/opt/syni/stacks/freightdesk/` on synicloud.
 
 **Out of SLC scope:** PushX/Red Frog (return post-SLC), git-driven rate config, self-hosted analytics, multi-leg routes, alliance-structure-picker beyond hardcoded SLC-K7, EVE SSO auth, server-persisted state.
 
-**User-supplied values needed mid-plan** (callouts at each task that needs them):
-- Alliance shipper rate card (ratePerM3, collateralPct, minReward, maxVol, maxCollateral, etaHours)
-- Real SLC-K7 alliance staging structure name (exact in-game listing string)
-- Cloudflare Tunnel token for the new tunnel
+**User-supplied values** — captured during planning:
+- **Shipper:** ADFU Kum N Go Transport Group
+- **Service-level:** `minReward: 5_000_000`, `maxVol: 350_000`, no collateral cap
+- **Route C-JM6T → Jita 4-4:** formula `max(vol×900, coll×0.5%)`, rush fee +250M ISK
+- **Route Jita 4-4 → C-JM6T:** formula `vol×700` (no collateral component), rush fee +250M ISK
+- **Tip-jar recipient (donations):** "Delve Time Unit Expenditures" — separate from the shipper above
+
+**User-supplied values still needed mid-plan:**
+- Real C-JM6T structure listing string (exact in-game station/structure name — Task 5e)
+- Cloudflare Tunnel token for the new tunnel (Task 16–17)
 
 ---
 
@@ -27,9 +33,13 @@
 - `web/src/lib/__tests__/pricing.test.ts` — pricing tests with mocked fetch
 - `web/src/lib/items.ts` — runtime items-DB loader (replaces the static `itemsDb.ts`)
 - `web/src/lib/__tests__/items.test.ts` — loader + name-lookup tests
+- `web/src/lib/types.ts` — Service / ServiceRoute / RouteFormula discriminated unions
+- `web/src/lib/services.generated.ts` — build-output: typed `SERVICES` literal from YAML (gitignored)
+- `web/services/adfu-kum-n-go.yaml` — first shipper config
 - `web/public/items.json` — build-output: full `{name → {id, vol}}` index from SDE+ESI (gitignored)
 - `web/public/favicon.svg` — drop the 404
 - `web/scripts/build-sde.ts` — Node script: SDE download → JSONL parse → ESI enrichment → items.json
+- `web/scripts/build-services.ts` — Node script: read services/*.yaml + validate + git-log timestamp → services.generated.ts
 - `web/scripts/cache/.gitkeep` — local cache dir for the SDE ZIP between rebuilds (gitignored)
 - `e2e/freightdesk.spec.ts` — Playwright E2E against `pnpm preview` build
 - `e2e/playwright.config.ts` — Playwright config, system Chromium
@@ -41,20 +51,71 @@
 - `docs/deploy.md` — synicloud + Cloudflare Tunnel deploy walkthrough
 
 **Modified:**
-- `web/package.json` — add scripts (`test`, `test:e2e`, `build:sde`, prebuild hook), add devDeps (vitest, @testing-library/*, playwright, esbuild-runner or tsx)
-- `web/src/lib/logic.ts` — strip SERVICES to alliance only; real rate card values; real SLC-K7 location; consume items module
+- `web/package.json` — add scripts (`test`, `test:e2e`, `build:sde`, `build:services`, prebuild hook), add devDeps (vitest, @testing-library/*, playwright, tsx, yaml, adm-zip)
+- `web/src/lib/logic.ts` — type extraction to types.ts; import SERVICES from generated module; new evaluateServices handling route-level formulas / rush fees / fallthrough caps; rename `slc` → `cjm6t`
 - `web/src/lib/itemsDb.ts` — **delete** (replaced by `items.ts` + items.json)
-- `web/src/App.tsx` — items loader on mount, loading state, pricing fetch wiring
+- `web/src/App.tsx` — items loader on mount, pricing fetch wiring, rush-enabled state (per-service)
 - `web/src/components/PasteBlock.tsx` — loading state when items DB not ready
-- `web/src/components/AboutFooter.tsx` — real ISK_ADDRESS
+- `web/src/components/ServicePicker.tsx` — drop ETA cell, add rush toggle row (only when route has rushFee), enhanced cap-warning copy ("split into multiple contracts")
+- `web/src/components/ContractCopy.tsx` — drop "Days to complete" footer line
+- `web/src/components/AboutFooter.tsx` — real ISK_ADDRESS = "Delve Time Unit Expenditures"
 - `web/src/components/SettingsDrawer.tsx` — wire collOverride + priceSource to actual state used by pricing
 - `web/index.html` — favicon link
-- `web/.gitignore` — add `public/items.json`, `scripts/cache/`
-- `CLAUDE.md` — update Status section, note items.json build step, deploy URL
+- `web/.gitignore` — add `public/items.json`, `src/lib/services.generated.ts`, `scripts/cache/`
+- `CLAUDE.md` — update Status section, note items.json + services.generated build steps, deploy URL
 - `/home/syniron/obsidian/directorate/projects/syni-eve-shipping-calc.md` — flip Status when shipped
 
 **Deleted:**
 - `web/src/lib/itemsDb.ts` — superseded by `web/src/lib/items.ts` + `public/items.json`
+
+## Schema summary
+
+```ts
+// web/src/lib/types.ts
+
+export type RouteFormula =
+  | { kind: "sum";       ratePerM3: number; collateralPct: number }   // vol×rate + coll×pct
+  | { kind: "max";       ratePerM3: number; collateralPct: number }   // max(vol×rate, coll×pct)
+  | { kind: "rate-only"; ratePerM3: number }                          // vol×rate (no coll component)
+  | { kind: "flat";      reward: number };                            // flat ISK regardless of size
+
+export interface ServiceRoute {
+  origin: string;                  // location id
+  destination: string;             // location id
+  formula: RouteFormula;
+  rushFee?: number;                // fixed bonus ISK if user enables rush
+  // route-level overrides (wins over service-level)
+  minReward?: number;
+  maxVol?: number;
+  maxCollateral?: number;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  tagline: string;
+  // service-level defaults — used if route doesn't override
+  minReward?: number;
+  maxVol?: number;
+  maxCollateral?: number;
+  routes: ServiceRoute[];
+  updated: string;                 // git-derived at build time (ISO yyyy-mm-dd)
+}
+```
+
+Reward calculation in `evaluateServices`:
+
+```ts
+function applyFormula(f: RouteFormula, vol: number, collateral: number): number {
+  switch (f.kind) {
+    case "sum":       return vol * f.ratePerM3 + collateral * f.collateralPct;
+    case "max":       return Math.max(vol * f.ratePerM3, collateral * f.collateralPct);
+    case "rate-only": return vol * f.ratePerM3;
+    case "flat":      return f.reward;
+  }
+}
+// total = max(minReward, applyFormula(...))  +  (rushEnabled ? route.rushFee : 0)
+```
 
 ---
 
@@ -222,10 +283,13 @@ import {
 } from "../logic";
 
 describe("evaluateServices", () => {
+  // Use SERVICES[0] / `slc` (placeholder) at Task 3 time. After Task 5e, the
+  // dest id becomes `cjm6t`. Task 5d adds the post-rename coverage; these
+  // tests stay valid by avoiding any specific service-id lookup.
   const origin = LOCATIONS.find((l) => l.id === "jita44")!;
-  const dest = LOCATIONS.find((l) => l.id === "slc")!;
-  // NOTE: When SERVICES is stripped to alliance-only (Task 5) these counts shift
-  // from 3 to 1. Update the .toHaveLength assertions then.
+  const dest = LOCATIONS.find((l) => l.id === "slc") ?? LOCATIONS.find((l) => l.id === "cjm6t")!;
+  // NOTE: minReward assertion below uses SERVICES[0].minReward — service-level
+  // value. If Task 5c moves minReward onto routes only, switch to a route lookup.
 
   it("returns one quote per service", () => {
     const parse = { matched: [], unmatched: [], totalVol: 1000, totalValue: 100_000_000 };
@@ -236,24 +300,21 @@ describe("evaluateServices", () => {
     const amarr = LOCATIONS.find((l) => l.id === "amarr")!;
     const parse = { matched: [], unmatched: [], totalVol: 1000, totalValue: 100_000_000 };
     const quotes = evaluateServices(parse, amarr, dest);
-    const alliance = quotes.find((q) => q.service.id === "alliance")!;
-    expect(alliance.eligible).toBe(false);
-    expect(alliance.reasons[0]).toMatch(/route/i);
+    expect(quotes[0].eligible).toBe(false);
+    expect(quotes[0].reasons[0]).toMatch(/route/i);
   });
 
   it("marks ineligible when volume exceeds cap", () => {
     const parse = { matched: [], unmatched: [], totalVol: 999_999_999, totalValue: 0 };
     const quotes = evaluateServices(parse, origin, dest);
-    const alliance = quotes.find((q) => q.service.id === "alliance")!;
-    expect(alliance.eligible).toBe(false);
-    expect(alliance.reasons.some((r) => r.includes("Volume"))).toBe(true);
+    expect(quotes[0].eligible).toBe(false);
+    expect(quotes[0].reasons.some((r) => r.includes("Volume"))).toBe(true);
   });
 
   it("applies minReward floor", () => {
     const parse = { matched: [], unmatched: [], totalVol: 1, totalValue: 0 };
     const quotes = evaluateServices(parse, origin, dest);
-    const alliance = quotes.find((q) => q.service.id === "alliance")!;
-    expect(alliance.reward).toBe(alliance.service.minReward);
+    expect(quotes[0].reward).toBe(quotes[0].service.minReward);
   });
 
   it("custom destinations are ineligible everywhere", () => {
@@ -369,71 +430,691 @@ git commit -m "test: cover LS helpers"
 
 ---
 
-### Task 5: Strip SERVICES to alliance-only
+### Task 5a: Extract types + drop ETA / Days-to-complete UI
+
+**Files:**
+- Create: `web/src/lib/types.ts`
+- Modify: `web/src/lib/logic.ts` (re-export from types.ts; drop etaHours from old Service interface)
+- Modify: `web/src/components/ServicePicker.tsx` (drop ETA cell)
+- Modify: `web/src/components/ContractCopy.tsx` (drop "Days to complete" line)
+- Modify: `web/src/lib/__tests__/logic.test.ts` (drop etaHours-dependent assertions if any)
+
+- [ ] **Step 1: Create `web/src/lib/types.ts`**
+
+```ts
+// FreightDesk — service config schema.
+//
+// Per-route formulas because shippers commonly price differently in each
+// direction (e.g. C-J → Jita uses max(rate, %coll); Jita → C-J uses rate only).
+
+export type RouteFormula =
+  | { kind: "sum"; ratePerM3: number; collateralPct: number }
+  | { kind: "max"; ratePerM3: number; collateralPct: number }
+  | { kind: "rate-only"; ratePerM3: number }
+  | { kind: "flat"; reward: number };
+
+export interface ServiceRoute {
+  origin: string;
+  destination: string;
+  formula: RouteFormula;
+  rushFee?: number;
+  minReward?: number;
+  maxVol?: number;
+  maxCollateral?: number;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  tagline: string;
+  minReward?: number;
+  maxVol?: number;
+  maxCollateral?: number;
+  routes: ServiceRoute[];
+  updated: string;
+}
+```
+
+- [ ] **Step 2: Remove old Service interface from `logic.ts`**
+
+Delete the `Service` interface in `logic.ts`. Replace the import block at the top with:
+
+```ts
+import { ITEM_DB } from "./itemsDb";  // (unchanged until Task 11)
+import type { RouteFormula, Service, ServiceRoute } from "./types";
+export type { RouteFormula, Service, ServiceRoute };
+```
+
+The old `SERVICES` const stays in place for now (we'll move it in Task 5d). For this task, modify the existing `SERVICES` entries by:
+- Removing the `etaHours` field
+- Converting `routes: [["jita44", "slc"], ["slc", "jita44"]]` (tuple form) into `ServiceRoute[]` objects with formulas. Use a placeholder formula `{ kind: "sum", ratePerM3: 450, collateralPct: 0.015 }` for the alliance entry; leave PushX/Red Frog formulas as `{ kind: "sum", ratePerM3: <old>, collateralPct: <old> }`.
+
+Don't worry about correctness of stub values — they get replaced wholesale in Task 5d.
+
+- [ ] **Step 3: Drop ETA cell from `ServicePicker.tsx`**
+
+In `ServiceCard`, the `svc-row-2` grid currently has 4 cells: Collateral, ETA, Rate, Rates updated. Delete the ETA cell. The `.svc-row-2` CSS uses `grid-template-columns: repeat(4, 1fr)` — change it to `repeat(3, 1fr)`:
+
+In `web/src/styles.css`:
+```css
+.svc-row-2 {
+  /* ... */
+  grid-template-columns: repeat(3, 1fr);   /* was repeat(4, 1fr) */
+}
+```
+
+(620px breakpoint already collapses to 2 cols — no change needed there.)
+
+- [ ] **Step 4: Drop "Days to complete" footer in `ContractCopy.tsx`**
+
+Replace the inner block of `.copy-foot` with just the Volume readout:
+
+```tsx
+<div className="copy-foot">
+  <div>
+    <span className="dim">Volume</span> <span className="mono">{vol} m³</span>
+  </div>
+</div>
+```
+
+(The "Expiration · 14 days" line was a hardcoded EVE default — dropped along with ETA. We can resurface it as a real per-service config later.)
+
+- [ ] **Step 5: Run tests**
+
+```bash
+cd web && pnpm test
+```
+
+Expected: green. If any test asserts on `etaHours` directly, update it.
+
+- [ ] **Step 6: Visual smoke**
+
+`pnpm dev`, load example. Service card shows 3 cells in `svc-row-2`. Contract block footer shows only Volume. No layout breakage.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add web/src/lib/types.ts web/src/lib/logic.ts web/src/components/ServicePicker.tsx web/src/components/ContractCopy.tsx web/src/styles.css web/src/lib/__tests__/logic.test.ts
+git commit -m "refactor: extract Service types; drop ETA + days-to-complete (no shipper publishes these)"
+```
+
+---
+
+### Task 5b: Scaffold services/ build pipeline
+
+**Files:**
+- Create: `web/scripts/build-services.ts`
+- Create: `web/services/.gitkeep`
+- Modify: `web/package.json` (add `yaml` dep, `build:services` script, extend `prebuild`)
+- Modify: `web/.gitignore` (`src/lib/services.generated.ts`)
+
+- [ ] **Step 1: Install yaml**
+
+```bash
+cd web && pnpm add -D yaml
+```
+
+- [ ] **Step 2: Skeleton `build-services.ts`**
+
+```ts
+#!/usr/bin/env tsx
+// Reads web/services/*.yaml, validates against the Service schema, captures
+// the most recent git commit timestamp per file, and emits a typed
+// SERVICES literal at web/src/lib/services.generated.ts.
+
+import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { parse as parseYaml } from "yaml";
+import type { Service, ServiceRoute, RouteFormula } from "../src/lib/types";
+
+const SERVICES_DIR = path.join(import.meta.dirname, "..", "services");
+const OUT_PATH = path.join(import.meta.dirname, "..", "src", "lib", "services.generated.ts");
+
+function gitFileDate(absPath: string): string {
+  // execFileSync with args array — no shell, no injection surface.
+  try {
+    const out = execFileSync("git", ["log", "-1", "--format=%cs", "--", absPath], { encoding: "utf8" }).trim();
+    if (out) return out;
+  } catch {
+    /* not in a repo, or file untracked */
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
+function validateFormula(f: any, where: string): RouteFormula {
+  if (!f || typeof f !== "object" || typeof f.kind !== "string") {
+    throw new Error(`${where}: formula must be an object with .kind`);
+  }
+  switch (f.kind) {
+    case "sum":
+    case "max":
+      if (typeof f.ratePerM3 !== "number" || typeof f.collateralPct !== "number")
+        throw new Error(`${where}: ${f.kind} formula needs ratePerM3 + collateralPct numbers`);
+      return { kind: f.kind, ratePerM3: f.ratePerM3, collateralPct: f.collateralPct };
+    case "rate-only":
+      if (typeof f.ratePerM3 !== "number")
+        throw new Error(`${where}: rate-only formula needs ratePerM3 number`);
+      return { kind: "rate-only", ratePerM3: f.ratePerM3 };
+    case "flat":
+      if (typeof f.reward !== "number")
+        throw new Error(`${where}: flat formula needs reward number`);
+      return { kind: "flat", reward: f.reward };
+    default:
+      throw new Error(`${where}: unknown formula kind "${f.kind}"`);
+  }
+}
+
+function validateRoute(r: any, where: string): ServiceRoute {
+  if (!r || typeof r !== "object")        throw new Error(`${where}: route must be an object`);
+  if (typeof r.origin !== "string")        throw new Error(`${where}: origin must be string`);
+  if (typeof r.destination !== "string")   throw new Error(`${where}: destination must be string`);
+  const formula = validateFormula(r.formula, `${where}.formula`);
+  const optNum = (k: string) => {
+    if (r[k] == null) return undefined;
+    if (typeof r[k] !== "number") throw new Error(`${where}: ${k} must be number`);
+    return r[k];
+  };
+  return { origin: r.origin, destination: r.destination, formula,
+           rushFee: optNum("rushFee"), minReward: optNum("minReward"),
+           maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral") };
+}
+
+function validateService(s: any, where: string, updated: string): Service {
+  if (typeof s.id !== "string")    throw new Error(`${where}: id must be string`);
+  if (typeof s.name !== "string")  throw new Error(`${where}: name must be string`);
+  if (!Array.isArray(s.routes))    throw new Error(`${where}: routes must be array`);
+  const optNum = (k: string) => {
+    if (s[k] == null) return undefined;
+    if (typeof s[k] !== "number") throw new Error(`${where}: ${k} must be number`);
+    return s[k];
+  };
+  return {
+    id: s.id, name: s.name, tagline: s.tagline ?? "",
+    minReward: optNum("minReward"), maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral"),
+    routes: s.routes.map((r: any, i: number) => validateRoute(r, `${where}.routes[${i}]`)),
+    updated,
+  };
+}
+
+async function main() {
+  const files = (await readdir(SERVICES_DIR)).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml")).sort();
+  console.error(`[services] found ${files.length} service config file(s)`);
+  const services: Service[] = [];
+  for (const f of files) {
+    const abs = path.join(SERVICES_DIR, f);
+    const text = await readFile(abs, "utf8");
+    const raw = parseYaml(text);
+    const updated = gitFileDate(abs);
+    services.push(validateService(raw, f, updated));
+  }
+  await mkdir(path.dirname(OUT_PATH), { recursive: true });
+  const body = `// AUTO-GENERATED by scripts/build-services.ts — do not edit.
+import type { Service } from "./types";
+
+export const SERVICES: Service[] = ${JSON.stringify(services, null, 2)};
+`;
+  await writeFile(OUT_PATH, body);
+  console.error(`[services] wrote ${OUT_PATH} (${services.length} services)`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
+```
+
+- [ ] **Step 3: Update `web/package.json` scripts**
+
+```json
+"build:services": "tsx scripts/build-services.ts",
+"prebuild": "(test -f public/items.json || pnpm build:sde) && pnpm build:services"
+```
+
+(`build:services` runs every build — it's cheap and always-fresh is safer than stale.)
+
+- [ ] **Step 4: Add gitignore entry**
+
+Append to `web/.gitignore`:
+```
+src/lib/services.generated.ts
+```
+
+- [ ] **Step 5: Empty-state smoke**
+
+```bash
+cd web && touch services/.gitkeep && pnpm build:services
+```
+
+Expected: `[services] found 0 service config file(s)` → `wrote .../services.generated.ts (0 services)`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add web/scripts/build-services.ts web/services/.gitkeep web/package.json web/pnpm-lock.yaml web/.gitignore
+git commit -m "build: services/ YAML pipeline scaffold"
+```
+
+---
+
+### Task 5c: Author services/adfu-kum-n-go.yaml + run
+
+**Files:**
+- Create: `web/services/adfu-kum-n-go.yaml`
+
+- [ ] **Step 1: Write the YAML**
+
+```yaml
+id: adfu-kum-n-go
+name: ADFU Kum N Go Transport Group
+tagline: Alliance freight • Delve
+
+# Service-level defaults
+minReward: 5000000
+maxVol: 350000
+# (no maxCollateral — service does not cap collateral)
+
+routes:
+  # C-JM6T → Jita: max(vol×rate, collateral×%)
+  - origin: cjm6t
+    destination: jita44
+    formula:
+      kind: max
+      ratePerM3: 900
+      collateralPct: 0.005    # 0.5%
+    rushFee: 250000000        # +250M ISK
+
+  # Jita → C-JM6T: vol×rate only (no collateral component)
+  - origin: jita44
+    destination: cjm6t
+    formula:
+      kind: rate-only
+      ratePerM3: 700
+    rushFee: 250000000
+```
+
+- [ ] **Step 2: Run + sanity check**
+
+```bash
+cd web && pnpm build:services
+cat src/lib/services.generated.ts | head -40
+```
+
+Expected: file contains `SERVICES: Service[] = [ ... adfu-kum-n-go ... ]` with the right structure.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add web/services/adfu-kum-n-go.yaml
+git commit -m "feat: ADFU Kum N Go service config (C-J ↔ Jita)"
+```
+
+---
+
+### Task 5d: Rewrite evaluateServices for per-route formulas + rush
 
 **Files:**
 - Modify: `web/src/lib/logic.ts`
-- Modify: `web/src/lib/__tests__/logic.test.ts` (update count assertions)
-- Modify: `web/src/App.tsx` (default selected service is already `"alliance"` — verify)
+- Modify: `web/src/lib/__tests__/logic.test.ts`
 
-> **REQUIRES USER INPUT:** real alliance shipper rate card before this task.
-> Fields: `ratePerM3`, `collateralPct`, `minReward`, `maxVol`, `maxCollateral`, `etaHours`, and the literal exact in-game listing string for the alliance staging structure (replaces "SLC-K7 - Alliance Staging Keepstar" placeholder).
-> If the rate card isn't ready, do Task 5 with the stub values intact and revisit before deploy.
+- [ ] **Step 1: Remove the old SERVICES const + Service-related glue from logic.ts**
 
-- [ ] **Step 1: Delete PushX + Red Frog entries**
+Delete:
+- The entire hand-written `SERVICES` const block
+- The `Service` re-export (already covered via types.ts)
+- The old `etaHours` field references
 
-In `web/src/lib/logic.ts`, replace the `SERVICES` array with just the alliance entry. Update values from rate card.
+Add at the top, after the existing imports:
+```ts
+import { SERVICES } from "./services.generated";
+export { SERVICES };
+```
+
+- [ ] **Step 2: Add `applyFormula` helper**
 
 ```ts
-export const SERVICES: Service[] = [
-  {
-    id: "alliance",
-    name: "Delve TUE",                      // user-supplied display name
-    tagline: "Internal alliance freight • discord ping on accept",
-    routes: [
-      ["jita44", "slc"],
-      ["slc", "jita44"],
-    ],
-    ratePerM3: 450,                         // ← rate card value
-    collateralPct: 0.015,                   // ← rate card value
-    minReward: 5_000_000,                   // ← rate card value
-    maxVol: 360_000,                        // ← rate card value
-    maxCollateral: 8_000_000_000,           // ← rate card value
-    etaHours: 18,                           // ← rate card value
-    updated: new Date().toISOString().slice(0, 10),  // hardcoded for SLC
-  },
-];
+import type { RouteFormula, Service, ServiceRoute } from "./types";
+
+export function applyFormula(f: RouteFormula, vol: number, collateral: number): number {
+  switch (f.kind) {
+    case "sum":       return vol * f.ratePerM3 + collateral * f.collateralPct;
+    case "max":       return Math.max(vol * f.ratePerM3, collateral * f.collateralPct);
+    case "rate-only": return vol * f.ratePerM3;
+    case "flat":      return f.reward;
+  }
+}
 ```
 
-- [ ] **Step 2: Update SLC-K7 LOCATION entry with real structure name**
+- [ ] **Step 3: Rewrite `evaluateServices`**
 
-In `web/src/lib/logic.ts`, replace the `slc` entry's `name` with the exact in-game listing string. Keep `short: "SLC-K7"` for the picker badge.
+```ts
+export interface Quote {
+  service: Service;
+  route: ServiceRoute | undefined;
+  eligible: boolean;
+  reasons: string[];
+  reward: number;
+  collateral: number;
+  vol: number;
+  rushFee: number;        // applicable fee for the matched route (0 if no route)
+  rushApplied: boolean;   // whether rush is currently toggled on AND a fee exists
+  breakdown: {
+    formula: RouteFormula | undefined;
+    formulaResult: number;     // before minReward floor
+    minReward: number;
+    rushAdded: number;         // 0 unless rushApplied
+  };
+}
 
-- [ ] **Step 3: Update the `evaluateServices` test counts**
+export function evaluateServices(
+  parse: ParseResult,
+  origin: Location,
+  dest: Location,
+  rushEnabled: boolean = false,
+): Quote[] {
+  return SERVICES.map((s): Quote => {
+    const route = s.routes.find((r) => r.origin === origin.id && r.destination === dest.id);
+    const vol = parse.totalVol;
+    const collateral = Math.max(parse.totalValue, 0);
+    const reasons: string[] = [];
 
-Change `.toHaveLength(SERVICES.length)` (already SERVICES.length, no change needed) — but check that the route-mismatch and volume-cap tests still refer to `"alliance"`.
+    if (!route) {
+      reasons.push(
+        origin?.custom || dest?.custom
+          ? "Doesn't service custom destinations"
+          : "Doesn't service this route",
+      );
+    }
 
-- [ ] **Step 4: Run tests + verify pass**
+    // Route-level overrides win, falling through to service-level.
+    const minReward    = route?.minReward    ?? s.minReward    ?? 0;
+    const maxVol       = route?.maxVol       ?? s.maxVol;
+    const maxCollateral = route?.maxCollateral ?? s.maxCollateral;
 
-Run: `pnpm test`
-Expected: all passing.
+    if (maxVol != null && vol > maxVol) {
+      reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(maxVol)} cap — split into multiple contracts`);
+    }
+    if (maxCollateral != null && collateral > maxCollateral) {
+      reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(maxCollateral)} cap — split into multiple contracts`);
+    }
 
-- [ ] **Step 5: Visual smoke**
+    const formulaResult = route ? applyFormula(route.formula, vol, collateral) : 0;
+    const rushFee = route?.rushFee ?? 0;
+    const rushApplied = !!route && rushEnabled && rushFee > 0;
+    const rushAdded = rushApplied ? rushFee : 0;
+    const reward = Math.max(minReward, formulaResult) + rushAdded;
+
+    return {
+      service: s,
+      route,
+      eligible: reasons.length === 0,
+      reasons,
+      reward,
+      collateral,
+      vol,
+      rushFee,
+      rushApplied,
+      breakdown: { formula: route?.formula, formulaResult, minReward, rushAdded },
+    };
+  });
+}
+```
+
+- [ ] **Step 4: Add tests for the new shapes**
+
+In `logic.test.ts`, add a new `describe` block:
+
+```ts
+import { applyFormula, evaluateServices } from "../logic";
+import type { ParseResult } from "../logic";
+
+const noCargo: ParseResult = { matched: [], unmatched: [], totalVol: 0, totalValue: 0 };
+
+describe("applyFormula", () => {
+  it("sum: vol*rate + coll*pct", () => {
+    expect(applyFormula({ kind: "sum", ratePerM3: 900, collateralPct: 0.01 }, 100, 1_000_000)).toBe(100 * 900 + 1_000_000 * 0.01);
+  });
+  it("max: whichever leg is larger", () => {
+    expect(applyFormula({ kind: "max", ratePerM3: 900, collateralPct: 0.005 }, 100, 1_000_000)).toBe(Math.max(100 * 900, 1_000_000 * 0.005));
+  });
+  it("rate-only: ignores collateral", () => {
+    expect(applyFormula({ kind: "rate-only", ratePerM3: 700 }, 1000, 999_999_999)).toBe(700_000);
+  });
+  it("flat: constant", () => {
+    expect(applyFormula({ kind: "flat", reward: 1_500_000 }, 100, 1_000_000_000)).toBe(1_500_000);
+  });
+});
+
+describe("evaluateServices with per-route formulas", () => {
+  // After Task 5c, SERVICES contains exactly adfu-kum-n-go.
+  // Locations: jita44 and cjm6t (renamed from slc in Task 5e — these tests assume Task 5e is done).
+  const adfu = () => SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cjm6t = LOCATIONS.find((l) => l.id === "cjm6t")!;
+
+  it("applies max formula on C-JM6T → Jita", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [q] = evaluateServices(parse, cjm6t, jita);
+    expect(q.eligible).toBe(true);
+    expect(q.reward).toBe(Math.max(10_000 * 900, 500_000_000 * 0.005));
+  });
+
+  it("applies rate-only on Jita → C-JM6T", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [q] = evaluateServices(parse, jita, cjm6t);
+    expect(q.reward).toBe(10_000 * 700);
+  });
+
+  it("enforces minReward floor", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 1, totalValue: 0 };
+    const [q] = evaluateServices(parse, jita, cjm6t);
+    expect(q.reward).toBe(adfu().minReward);  // 5_000_000
+  });
+
+  it("adds rushFee only when rushEnabled", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [off] = evaluateServices(parse, jita, cjm6t, false);
+    const [on]  = evaluateServices(parse, jita, cjm6t, true);
+    expect(on.reward - off.reward).toBe(250_000_000);
+    expect(on.rushApplied).toBe(true);
+    expect(off.rushApplied).toBe(false);
+  });
+
+  it("flags cap exceeded with split-contracts copy", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 999_999, totalValue: 0 };
+    const [q] = evaluateServices(parse, cjm6t, jita);
+    expect(q.eligible).toBe(false);
+    expect(q.reasons[0]).toMatch(/split into multiple contracts/i);
+  });
+});
+```
+
+- [ ] **Step 5: Run all tests**
 
 ```bash
-cd web && pnpm dev
+pnpm test
 ```
 
-Open http://localhost:5173, load example, confirm:
-- Only one service card (alliance) shown
-- No "Pick a courier" empty-state error
-- Default route Jita 4-4 ↔ SLC-K7 still works
+Expected: all green. (Task 5e tests still depend on locations being renamed — defer to that task if needed; for now skip the "cjm6t" assertions.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add web/src/lib/logic.ts web/src/lib/__tests__/logic.test.ts
-git commit -m "feat: strip to alliance-only service for SLC + real rate card"
+git commit -m "feat: per-route formulas + rush fee + split-contracts cap message"
+```
+
+---
+
+### Task 5e: Rename slc → cjm6t in LOCATIONS
+
+**Files:**
+- Modify: `web/src/lib/logic.ts`
+- Modify: `web/src/App.tsx` (default dest is `"slc"` → `"cjm6t"`)
+- Modify: `web/src/components/SettingsDrawer.tsx` (if any hardcoded `slc` reference)
+
+> **REQUIRES USER INPUT:** the exact in-game listing string for the C-JM6T alliance staging structure.
+> Currently the placeholder is `"SLC-K7 - Alliance Staging Keepstar"`. Replace with the real string before commit.
+
+- [ ] **Step 1: Update `LOCATIONS` entry**
+
+```ts
+{ id: "cjm6t", name: "<REAL STRUCTURE LISTING STRING>", short: "C-JM6T", hub: false, alliance: true, sec: -0.4 },
+```
+
+- [ ] **Step 2: Update default dest in `App.tsx`**
+
+```tsx
+const [dest, setDest] = useState<Location>(() => resolveLocation(LS.get<unknown>("dest", null), "cjm6t"));
+```
+
+And `DEFAULT_SETTINGS.defaultDest`: `"slc"` → `"cjm6t"`.
+
+- [ ] **Step 3: Update YAML to match (already cjm6t, but verify)**
+
+`services/adfu-kum-n-go.yaml` already uses `cjm6t` — no change.
+
+- [ ] **Step 4: Migration note**
+
+Existing users have `eveship.dest` storing the old `slc` id. `resolveLocation` already falls through to the fallback when an unknown id is stored — so they'll land on the new `cjm6t` automatically. No data migration code needed.
+
+- [ ] **Step 5: Run tests + manual smoke**
+
+```bash
+pnpm test
+pnpm dev
+```
+
+Confirm picker shows `C-JM6T` short name, structure listing string matches in-game.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add web/src/lib/logic.ts web/src/App.tsx web/src/components/SettingsDrawer.tsx
+git commit -m "feat: rename staging location slc → cjm6t + real structure name"
+```
+
+---
+
+### Task 5f: Rush toggle UI + state
+
+**Files:**
+- Modify: `web/src/App.tsx` (rushEnabled state + persistence)
+- Modify: `web/src/components/ServicePicker.tsx` (rush toggle row in the card)
+- Modify: `web/src/components/ContractCopy.tsx` (consume reward that already includes rush)
+- Modify: `web/src/styles.css` (rush-row styling)
+- Modify: `web/src/lib/__tests__/logic.test.ts` (cover rush-on/off via App state — covered in 5d; UI-level smoke is the verify in step 6)
+
+> **Note on rush placement:** the user specified this is NOT a user-input field — it's a service-defined fixed value (e.g. +250M ISK) the user toggles on/off. Show the actual amount in the label so it's transparent.
+
+- [ ] **Step 1: Add `rushEnabled` state in `App.tsx`**
+
+```tsx
+const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
+useEffect(() => LS.set("rush", rushEnabled), [rushEnabled]);
+
+const quotes = useMemo(
+  () => evaluateServices(parse, origin, dest, rushEnabled),
+  [parse, origin, dest, rushEnabled],
+);
+```
+
+Pass `rushEnabled` and `setRushEnabled` to `<ServicePicker>`.
+
+- [ ] **Step 2: Update `ServicePicker` props + render the toggle**
+
+```tsx
+interface ServicePickerProps {
+  quotes: Quote[];
+  selectedId: string | undefined;
+  setSelectedId: (id: string) => void;
+  rushEnabled: boolean;
+  setRushEnabled: (v: boolean) => void;
+}
+```
+
+In `ServiceCard`, render a rush row below `svc-row-2` (only when `q.rushFee > 0`):
+
+```tsx
+{q.rushFee > 0 && q.eligible && (
+  <label className="svc-rush" onClick={(e) => e.stopPropagation()}>
+    <input
+      type="checkbox"
+      checked={rushEnabled}
+      onChange={(e) => setRushEnabled(e.target.checked)}
+    />
+    <span>Rush (+{fmtISK(q.rushFee)} ISK)</span>
+  </label>
+)}
+```
+
+Pass `rushEnabled` + `setRushEnabled` from `ServicePicker` into each `ServiceCard`.
+
+- [ ] **Step 3: Style the rush row**
+
+In `web/src/styles.css`, append:
+
+```css
+.svc-rush {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: oklch(from var(--accent) l c h / .06);
+  border: 1px solid oklch(from var(--accent) l c h / .25);
+  color: var(--fg-2);
+  font-size: 12.5px;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  user-select: none;
+}
+.svc-rush:hover { background: oklch(from var(--accent) l c h / .1); }
+.svc-rush input[type="checkbox"] { accent-color: var(--accent); margin: 0; }
+```
+
+- [ ] **Step 4: Update show-calculation breakdown**
+
+The `.svc-calc` block needs to reflect the new formula shapes. Replace its inner JSX with switch-style rendering:
+
+```tsx
+{showCalc && q.breakdown.formula && (
+  <div className="svc-calc mono">
+    {q.breakdown.formula.kind === "sum" && (
+      <>
+        <div><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = {fmtISKFull(q.vol * q.breakdown.formula.ratePerM3)}</div>
+        <div><span className="dim">collateral</span> {fmtISKFull(q.collateral)} × {(q.breakdown.formula.collateralPct * 100).toFixed(2)}% = {fmtISKFull(q.collateral * q.breakdown.formula.collateralPct)}</div>
+        <div className="svc-calc-sum"><span className="dim">sum</span> = {fmtISKFull(q.breakdown.formulaResult)}</div>
+      </>
+    )}
+    {q.breakdown.formula.kind === "max" && (
+      <>
+        <div><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = {fmtISKFull(q.vol * q.breakdown.formula.ratePerM3)}</div>
+        <div><span className="dim">collateral</span> {fmtISKFull(q.collateral)} × {(q.breakdown.formula.collateralPct * 100).toFixed(2)}% = {fmtISKFull(q.collateral * q.breakdown.formula.collateralPct)}</div>
+        <div className="svc-calc-sum"><span className="dim">max</span> = {fmtISKFull(q.breakdown.formulaResult)}</div>
+      </>
+    )}
+    {q.breakdown.formula.kind === "rate-only" && (
+      <div className="svc-calc-sum"><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = <b>{fmtISKFull(q.breakdown.formulaResult)}</b></div>
+    )}
+    {q.breakdown.formula.kind === "flat" && (
+      <div className="svc-calc-sum"><span className="dim">flat</span> = <b>{fmtISKFull(q.breakdown.formula.reward)}</b></div>
+    )}
+    <div className="svc-calc-sum"><span className="dim">reward</span> max({fmtISKFull(q.breakdown.minReward)}, formula){q.breakdown.rushAdded > 0 && ` + ${fmtISKFull(q.breakdown.rushAdded)} rush`} = <b>{fmtISKFull(q.reward)}</b></div>
+  </div>
+)}
+```
+
+- [ ] **Step 5: Manual smoke**
+
+`pnpm dev`. Load example. Toggle Rush on the alliance card. Confirm:
+- Quoted reward jumps by 250M
+- Show calculation reflects "+ rush"
+- Default route Jita → C-JM6T uses rate-only formula
+- Swap route to C-JM6T → Jita, confirm max formula kicks in
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add web/src/App.tsx web/src/components/ServicePicker.tsx web/src/components/ContractCopy.tsx web/src/styles.css web/src/lib/__tests__/logic.test.ts
+git commit -m "feat: rush toggle UI + service-card calc breakdown for new formula modes"
 ```
 
 ---
@@ -1674,13 +2355,17 @@ Out of plan scope: Reddit + Discord posts. Project doc covers the where.
 
 - ✓ Live URL at syniron.com subdomain — Task 17 (`freightdesk.syniron.com`)
 - ✓ Paste hangar → compute volume — Tasks 10–11 (real items DB with SDE+ESI)
-- ✓ Click-to-copy contract values (volume, suggested collateral, reward) for one alliance shipper on staging ↔ Jita — already in design, locked in via Task 5
+- ✓ Click-to-copy contract values for one alliance shipper on staging ↔ Jita — locked in via Tasks 5b–5f
+- ✓ Per-route formulas (max / rate-only / sum / flat) — Task 5a (types), 5d (eval), 5f (UI)
+- ✓ Rush fee as service-defined toggle — Task 5f
+- ✓ Volume / collateral cap warnings with split-contracts hint — Task 5d
+- ✓ Git-driven service config — Tasks 5b/5c (YAML in `services/`, build-time compile, git-log timestamp)
 - ✓ Launch post in r/Eve + alliance Discord — explicitly out of plan scope (project doc owns it)
-- ✓ Out-of-scope items honored: no PushX/Red Frog, no git-driven rates, no Plausible, no auth — Task 5 strips services, alliance.updated is hardcoded
+- ✓ Out-of-scope items honored: no PushX/Red Frog, no Plausible, no auth, no multi-leg, no auto-split
 
 **Open question parking lot** from project doc:
-- "Structure mapping" — handled for SLC by hardcoding SLC-K7 in LOCATIONS (Task 5 step 2)
-- "Alliance shipper rate formula" — flagged as user-supplied at Task 5
+- "Structure mapping" — handled for SLC by hardcoding C-JM6T in LOCATIONS (Task 5e)
+- "Alliance shipper rate formula" — captured: ADFU Kum N Go, per-route formulas as above
 - "Contract-window value formats" — verified visually in Task 20 step 1
 
 **Placeholder scan:** No "TBD" / "implement later" / "similar to" hand-waves remain. All code blocks contain executable code. ESI enrichment loop has the actual concurrency pattern.
