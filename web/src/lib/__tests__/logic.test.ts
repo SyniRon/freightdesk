@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { parseHangarPaste } from "../logic";
+import {
+  parseHangarPaste,
+  evaluateServices,
+  fmtISK,
+  fmtVol,
+  fmtSec,
+  secTier,
+  resolveLocation,
+  makeCustomLocation,
+  LOCATIONS,
+  SERVICES,
+} from "../logic";
 
 // NOTE: parseHangarPaste reads ITEM_DB from the items module. For these tests
 // we'll temporarily import the legacy itemsDb.ts; once Task 9 replaces the
@@ -53,5 +64,94 @@ describe("parseHangarPaste", () => {
   it("ignores blank lines and whitespace", () => {
     const r = parseHangarPaste("\n  \nDrake\t1\n\n");
     expect(r.matched).toHaveLength(1);
+  });
+});
+
+describe("evaluateServices", () => {
+  // Use SERVICES[0] / `slc` (placeholder) at Task 3 time. After Task 5e, the
+  // dest id becomes `cjm6t`. Task 5d adds the post-rename coverage; these
+  // tests stay valid by avoiding any specific service-id lookup.
+  const origin = LOCATIONS.find((l) => l.id === "jita44")!;
+  const dest = LOCATIONS.find((l) => l.id === "slc") ?? LOCATIONS.find((l) => l.id === "cjm6t")!;
+  // NOTE: minReward assertion below uses SERVICES[0].minReward — service-level
+  // value. If Task 5c moves minReward onto routes only, switch to a route lookup.
+
+  it("returns one quote per service", () => {
+    const parse = { matched: [], unmatched: [], totalVol: 1000, totalValue: 100_000_000 };
+    expect(evaluateServices(parse, origin, dest)).toHaveLength(SERVICES.length);
+  });
+
+  it("marks ineligible when route doesn't match", () => {
+    const amarr = LOCATIONS.find((l) => l.id === "amarr")!;
+    const parse = { matched: [], unmatched: [], totalVol: 1000, totalValue: 100_000_000 };
+    const quotes = evaluateServices(parse, amarr, dest);
+    expect(quotes[0].eligible).toBe(false);
+    expect(quotes[0].reasons[0]).toMatch(/route/i);
+  });
+
+  it("marks ineligible when volume exceeds cap", () => {
+    const parse = { matched: [], unmatched: [], totalVol: 999_999_999, totalValue: 0 };
+    const quotes = evaluateServices(parse, origin, dest);
+    expect(quotes[0].eligible).toBe(false);
+    expect(quotes[0].reasons.some((r) => r.includes("Volume"))).toBe(true);
+  });
+
+  it("applies minReward floor", () => {
+    const parse = { matched: [], unmatched: [], totalVol: 1, totalValue: 0 };
+    const quotes = evaluateServices(parse, origin, dest);
+    expect(quotes[0].reward).toBe(quotes[0].service.minReward);
+  });
+
+  it("custom destinations are ineligible everywhere", () => {
+    const custom = makeCustomLocation("XX-XYZ");
+    const parse = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
+    const quotes = evaluateServices(parse, origin, custom);
+    expect(quotes.every((q) => !q.eligible)).toBe(true);
+  });
+});
+
+describe("formatters", () => {
+  it("fmtISK uses B/M/K suffixes at thresholds", () => {
+    expect(fmtISK(2_500_000_000)).toBe("2.50B");
+    expect(fmtISK(45_400_000)).toBe("45.40M");
+    expect(fmtISK(8_750)).toBe("8.8K");
+    expect(fmtISK(120)).toBe("120");
+  });
+  it("fmtVol appends m³", () => {
+    expect(fmtVol(1500.7)).toBe("1,500.7 m³");
+  });
+  it("returns em-dash on nullish input", () => {
+    expect(fmtISK(undefined)).toBe("—");
+    expect(fmtVol(NaN)).toBe("—");
+  });
+});
+
+describe("secTier", () => {
+  it("classifies high/low/null by sec value", () => {
+    expect(secTier(0.9).tier).toBe("high");
+    expect(secTier(0.3).tier).toBe("low");
+    expect(secTier(-0.4).tier).toBe("null");
+    expect(secTier(null).tier).toBe("unknown");
+  });
+  it("fmtSec formats one decimal", () => {
+    expect(fmtSec(0.945)).toBe("0.9");
+    expect(fmtSec(null)).toBe("—");
+  });
+});
+
+describe("resolveLocation", () => {
+  it("hydrates legacy string id state", () => {
+    const loc = resolveLocation("jita44", "amarr");
+    expect(loc.id).toBe("jita44");
+  });
+  it("preserves custom-flagged objects", () => {
+    const stored = makeCustomLocation("ABC-123");
+    const loc = resolveLocation(stored, "jita44");
+    expect(loc.custom).toBe(true);
+    expect(loc.short).toBe("ABC-123");
+  });
+  it("falls back when stored id no longer exists", () => {
+    const loc = resolveLocation("deleted-id", "jita44");
+    expect(loc.id).toBe("jita44");
   });
 });
