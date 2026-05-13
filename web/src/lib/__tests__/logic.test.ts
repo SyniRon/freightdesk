@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseHangarPaste,
   evaluateServices,
+  applyFormula,
   fmtISK,
   fmtVol,
   fmtSec,
@@ -11,6 +12,7 @@ import {
   LOCATIONS,
   SERVICES,
 } from "../logic";
+import type { ParseResult } from "../logic";
 
 // NOTE: parseHangarPaste reads ITEM_DB from the items module. For these tests
 // we'll temporarily import the legacy itemsDb.ts; once Task 9 replaces the
@@ -153,5 +155,61 @@ describe("resolveLocation", () => {
   it("falls back when stored id no longer exists", () => {
     const loc = resolveLocation("deleted-id", "jita44");
     expect(loc.id).toBe("jita44");
+  });
+});
+
+describe("applyFormula", () => {
+  it("sum: vol*rate + coll*pct", () => {
+    expect(applyFormula({ kind: "sum", ratePerM3: 900, collateralPct: 0.01 }, 100, 1_000_000)).toBe(100 * 900 + 1_000_000 * 0.01);
+  });
+  it("max: whichever leg is larger", () => {
+    expect(applyFormula({ kind: "max", ratePerM3: 900, collateralPct: 0.005 }, 100, 1_000_000)).toBe(Math.max(100 * 900, 1_000_000 * 0.005));
+  });
+  it("rate-only: ignores collateral", () => {
+    expect(applyFormula({ kind: "rate-only", ratePerM3: 700 }, 1000, 999_999_999)).toBe(700_000);
+  });
+  it("flat: constant", () => {
+    expect(applyFormula({ kind: "flat", reward: 1_500_000 }, 100, 1_000_000_000)).toBe(1_500_000);
+  });
+});
+
+describe("evaluateServices with per-route formulas", () => {
+  const adfu = () => SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cjm6t = LOCATIONS.find((l) => l.id === "cjm6t")!;
+
+  it("applies max formula on C-JM6T → Jita", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [q] = evaluateServices(parse, cjm6t, jita);
+    expect(q.eligible).toBe(true);
+    expect(q.reward).toBe(Math.max(10_000 * 900, 500_000_000 * 0.005));
+  });
+
+  it("applies rate-only on Jita → C-JM6T", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [q] = evaluateServices(parse, jita, cjm6t);
+    expect(q.reward).toBe(10_000 * 700);
+  });
+
+  it("enforces minReward floor", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 1, totalValue: 0 };
+    const [q] = evaluateServices(parse, jita, cjm6t);
+    expect(q.reward).toBe(adfu().minReward);  // 5_000_000
+  });
+
+  it("adds rushFee only when rushEnabled", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const [off] = evaluateServices(parse, jita, cjm6t, false);
+    const [on]  = evaluateServices(parse, jita, cjm6t, true);
+    expect(on.reward - off.reward).toBe(250_000_000);
+    expect(on.rushApplied).toBe(true);
+    expect(off.rushApplied).toBe(false);
+  });
+
+  it("flags cap exceeded with split-contracts copy", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 999_999, totalValue: 0 };
+    const [q] = evaluateServices(parse, cjm6t, jita);
+    expect(q.eligible).toBe(false);
+    expect(q.reasons[0]).toMatch(/split into multiple contracts/i);
   });
 });

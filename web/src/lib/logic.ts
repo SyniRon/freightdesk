@@ -4,6 +4,8 @@
 import { ITEM_DB } from "./itemsDb";
 import type { RouteFormula, Service, ServiceRoute } from "./types";
 export type { RouteFormula, Service, ServiceRoute };
+import { SERVICES } from "./services.generated";
+export { SERVICES };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 export interface MatchedLine {
@@ -39,12 +41,29 @@ export interface Location {
 
 export interface Quote {
   service: Service;
+  route: ServiceRoute | undefined;
   eligible: boolean;
   reasons: string[];
   reward: number;
   collateral: number;
   vol: number;
-  breakdown: { volPart: number; collPart: number; min: number };
+  rushFee: number;
+  rushApplied: boolean;
+  breakdown: {
+    formula: RouteFormula | undefined;
+    formulaResult: number;
+    minReward: number;
+    rushAdded: number;
+  };
+}
+
+export function applyFormula(f: RouteFormula, vol: number, collateral: number): number {
+  switch (f.kind) {
+    case "sum":       return vol * f.ratePerM3 + collateral * f.collateralPct;
+    case "max":       return Math.max(vol * f.ratePerM3, collateral * f.collateralPct);
+    case "rate-only": return vol * f.ratePerM3;
+    case "flat":      return f.reward;
+  }
 }
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────
@@ -120,7 +139,7 @@ export const LOCATIONS: Location[] = [
   { id: "amarr", name: "Amarr VIII (Oris) - Emperor Family Academy", short: "Amarr", hub: true, sec: 1.0 },
   { id: "rens", name: "Rens VI - Moon 8 - Brutor Tribe Treasury", short: "Rens", hub: true, sec: 0.9 },
   { id: "dodixie", name: "Dodixie IX - Moon 20 - Federation Navy Assembly", short: "Dodixie", hub: true, sec: 0.9 },
-  { id: "slc", name: "SLC-K7 - Alliance Staging Keepstar", short: "SLC-K7", hub: false, alliance: true, sec: -0.4 },
+  { id: "cjm6t", name: "C-JM6T - Alliance Staging Keepstar", short: "C-JM6T", hub: false, alliance: true, sec: -0.4 },
 ];
 
 export interface SecTierInfo {
@@ -141,115 +160,60 @@ export function fmtSec(sec: number | null | undefined): string {
   return sec == null ? "—" : sec.toFixed(1);
 }
 
-// STUB: in a real build these come from per-service config files on disk; the
-// "updated" date is read from the file's git commit metadata.
-// See CLAUDE.md design pin "Rates and new services land via git."
-export const SERVICES: Service[] = [
-  {
-    id: "alliance",
-    name: "Alliance Logistics (SLC-K7)",
-    tagline: "Internal alliance freight • discord ping on accept",
-    minReward: 5_000_000,
-    maxVol: 360_000,
-    maxCollateral: 8_000_000_000,
-    routes: [
-      {
-        origin: "jita44",
-        destination: "slc",
-        formula: { kind: "sum", ratePerM3: 450, collateralPct: 0.015 },
-      },
-      {
-        origin: "slc",
-        destination: "jita44",
-        formula: { kind: "sum", ratePerM3: 450, collateralPct: 0.015 },
-      },
-    ],
-    updated: "2026-05-09",
-  },
-  {
-    id: "pushx",
-    name: "PushX Public Freight",
-    tagline: "Public hi-sec courier • automated quote",
-    minReward: 1_000_000,
-    maxVol: 360_000,
-    maxCollateral: 20_000_000_000,
-    routes: [
-      { origin: "jita44", destination: "amarr", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-      { origin: "jita44", destination: "rens",  formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-      { origin: "jita44", destination: "dodixie", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-      { origin: "amarr",  destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-      { origin: "rens",   destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-      { origin: "dodixie", destination: "jita44", formula: { kind: "sum", ratePerM3: 850, collateralPct: 0.0075 } },
-    ],
-    updated: "2026-04-22",
-  },
-  {
-    id: "redfrog",
-    name: "Red Frog Freight",
-    tagline: "Hi-sec courier specialist • 1B collateral cap",
-    minReward: 800_000,
-    maxVol: 60_000,
-    maxCollateral: 1_000_000_000,
-    routes: [
-      { origin: "jita44", destination: "amarr", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-      { origin: "jita44", destination: "rens",  formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-      { origin: "jita44", destination: "dodixie", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-      { origin: "amarr",  destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-      { origin: "rens",   destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-      { origin: "dodixie", destination: "jita44", formula: { kind: "sum", ratePerM3: 600, collateralPct: 0.01 } },
-    ],
-    updated: "2026-03-15",
-  },
-];
-
 export function daysSince(iso: string): number {
   const d = (Date.now() - new Date(iso).getTime()) / 86400000;
   return Math.floor(d);
 }
 
-export function evaluateServices(parse: ParseResult, origin: Location, dest: Location): Quote[] {
-  const originId = origin?.id;
-  const destId = dest?.id;
-  return SERVICES.map((s) => {
-    const reasons: string[] = [];
-    const route = s.routes.find((r) => r.origin === originId && r.destination === destId);
-    const routeOk = route != null;
+export function evaluateServices(
+  parse: ParseResult,
+  origin: Location,
+  dest: Location,
+  rushEnabled: boolean = false,
+): Quote[] {
+  return SERVICES.map((s): Quote => {
+    const route = s.routes.find((r) => r.origin === origin.id && r.destination === dest.id);
     const vol = parse.totalVol;
     const collateral = Math.max(parse.totalValue, 0);
+    const reasons: string[] = [];
 
-    let reward = s.minReward ?? 0;
-    let volPart = 0;
-    let collPart = 0;
-    if (route && route.formula.kind === "sum") {
-      volPart = vol * route.formula.ratePerM3;
-      collPart = collateral * route.formula.collateralPct;
-      reward = Math.max(s.minReward ?? 0, volPart + collPart);
-    }
-
-    if (!routeOk) {
+    if (!route) {
       reasons.push(
         origin?.custom || dest?.custom
           ? "Doesn't service custom destinations"
           : "Doesn't service this route",
       );
     }
-    if (s.maxVol != null && vol > s.maxVol)
-      reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(s.maxVol)} cap`);
-    if (s.maxCollateral != null && collateral > s.maxCollateral)
-      reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(s.maxCollateral)} cap`);
-    const eligible = reasons.length === 0;
+
+    // Route-level overrides win, falling through to service-level.
+    const minReward     = route?.minReward    ?? s.minReward    ?? 0;
+    const maxVol        = route?.maxVol       ?? s.maxVol;
+    const maxCollateral = route?.maxCollateral ?? s.maxCollateral;
+
+    if (maxVol != null && vol > maxVol) {
+      reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(maxVol)} cap — split into multiple contracts`);
+    }
+    if (maxCollateral != null && collateral > maxCollateral) {
+      reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(maxCollateral)} cap — split into multiple contracts`);
+    }
+
+    const formulaResult = route ? applyFormula(route.formula, vol, collateral) : 0;
+    const rushFee = route?.rushFee ?? 0;
+    const rushApplied = !!route && rushEnabled && rushFee > 0;
+    const rushAdded = rushApplied ? rushFee : 0;
+    const reward = Math.max(minReward, formulaResult) + rushAdded;
+
     return {
       service: s,
-      eligible,
+      route,
+      eligible: reasons.length === 0,
       reasons,
       reward,
       collateral,
       vol,
-      breakdown: {
-        volPart,
-        collPart,
-        min: s.minReward ?? 0,
-      },
+      rushFee,
+      rushApplied,
+      breakdown: { formula: route?.formula, formulaResult, minReward, rushAdded },
     };
   });
 }

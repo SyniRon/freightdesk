@@ -46,8 +46,10 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
         <div className="svc-cell">
           <span className="svc-k">Rate</span>
           <span className="svc-v mono">
-            {q.breakdown.volPart > 0 || q.vol === 0
-              ? `${(q.breakdown.volPart / (q.vol || 1)).toFixed(0)} / m³`
+            {q.route ?
+              (q.breakdown.formula?.kind === "flat"
+                ? "flat"
+                : "ratePerM3" in (q.breakdown.formula ?? {}) ? `${(q.breakdown.formula as any).ratePerM3} / m³` : "—")
               : "—"}
           </span>
         </div>
@@ -78,24 +80,29 @@ function ServiceCard({ q, selected, onSelect }: ServiceCardProps) {
         <Caret style={{ transform: showCalc ? "rotate(180deg)" : "" }} />
       </button>
 
-      {showCalc && (
+      {showCalc && q.breakdown.formula && (
         <div className="svc-calc mono">
-          <div>
-            <span className="dim">volume</span> {fmtVol(q.vol)} ×{" "}
-            {q.vol > 0 ? (q.breakdown.volPart / q.vol).toFixed(0) : "0"}/m³ ={" "}
-            {fmtISKFull(q.breakdown.volPart)}
-          </div>
-          <div>
-            <span className="dim">collateral</span> {fmtISKFull(q.collateral)} ×{" "}
-            {q.collateral > 0
-              ? ((q.breakdown.collPart / q.collateral) * 100).toFixed(2)
-              : "0.00"}
-            % = {fmtISKFull(q.breakdown.collPart)}
-          </div>
-          <div className="svc-calc-sum">
-            <span className="dim">reward</span> max({fmtISKFull(q.breakdown.min)}, sum) ={" "}
-            <b>{fmtISKFull(q.reward)}</b>
-          </div>
+          {q.breakdown.formula.kind === "sum" && (
+            <>
+              <div><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = {fmtISKFull(q.vol * q.breakdown.formula.ratePerM3)}</div>
+              <div><span className="dim">collateral</span> {fmtISKFull(q.collateral)} × {(q.breakdown.formula.collateralPct * 100).toFixed(2)}% = {fmtISKFull(q.collateral * q.breakdown.formula.collateralPct)}</div>
+              <div className="svc-calc-sum"><span className="dim">sum</span> = {fmtISKFull(q.breakdown.formulaResult)}</div>
+            </>
+          )}
+          {q.breakdown.formula.kind === "max" && (
+            <>
+              <div><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = {fmtISKFull(q.vol * q.breakdown.formula.ratePerM3)}</div>
+              <div><span className="dim">collateral</span> {fmtISKFull(q.collateral)} × {(q.breakdown.formula.collateralPct * 100).toFixed(2)}% = {fmtISKFull(q.collateral * q.breakdown.formula.collateralPct)}</div>
+              <div className="svc-calc-sum"><span className="dim">max</span> = {fmtISKFull(q.breakdown.formulaResult)}</div>
+            </>
+          )}
+          {q.breakdown.formula.kind === "rate-only" && (
+            <div className="svc-calc-sum"><span className="dim">volume</span> {fmtVol(q.vol)} × {q.breakdown.formula.ratePerM3}/m³ = <b>{fmtISKFull(q.breakdown.formulaResult)}</b></div>
+          )}
+          {q.breakdown.formula.kind === "flat" && (
+            <div className="svc-calc-sum"><span className="dim">flat</span> = <b>{fmtISKFull(q.breakdown.formula.reward)}</b></div>
+          )}
+          <div className="svc-calc-sum"><span className="dim">reward</span> max({fmtISKFull(q.breakdown.minReward)}, formula){q.breakdown.rushAdded > 0 && ` + ${fmtISKFull(q.breakdown.rushAdded)} rush`} = <b>{fmtISKFull(q.reward)}</b></div>
         </div>
       )}
     </div>
