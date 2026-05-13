@@ -32,9 +32,6 @@ export function EmptyState({ onLoadExample }: EmptyStateProps) {
           <Dot style={{ color: "var(--accent)" }} /> Open rates — each service shows when its
           formula was last edited.
         </div>
-        <div>
-          <Dot style={{ color: "var(--muted-2)" }} /> No login. No analytics. No CCP affiliation.
-        </div>
       </div>
     </section>
   );
