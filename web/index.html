@@ -11,6 +11,19 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Umami analytics — only loads when VITE_UMAMI_WEBSITE_ID is set at build time -->
+    <script type="module">
+      const wid = import.meta.env.VITE_UMAMI_WEBSITE_ID;
+      if (wid) {
+        const s = document.createElement("script");
+        s.async = true;
+        s.defer = true;
+        s.dataset.websiteId = wid;
+        s.dataset.hostUrl = "/umami";
+        s.src = "/umami/script.js";
+        document.head.appendChild(s);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

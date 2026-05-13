@@ -1,9 +1,19 @@
 :8080 {
     root * /srv
     encode gzip zstd
-    file_server
-    # SPA fallback — every unknown path returns index.html so client-side routing works
-    try_files {path} /index.html
-    header /assets/* Cache-Control "public, max-age=31536000, immutable"
-    header /items.json Cache-Control "public, max-age=86400"
+
+    # Umami tracking script + event ingest. Reverse-proxied so the visitor's
+    # browser hits /umami/* on our origin — keeps the script same-origin
+    # (no third-party tracker) and means Umami's admin UI can stay on
+    # Tailscale-only without exposing it publicly.
+    handle_path /umami/* {
+        reverse_proxy umami:3000
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
+        header /assets/* Cache-Control "public, max-age=31536000, immutable"
+        header /items.json Cache-Control "public, max-age=86400"
+    }
 }

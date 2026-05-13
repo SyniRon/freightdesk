@@ -6,6 +6,7 @@
 // document element in case we surface a settings toggle later.
 
 import { useEffect, useMemo, useState } from "react";
+import { track, valueBucket, volumeBucket } from "./lib/analytics";
 import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import {
   evaluateServices,
@@ -135,6 +136,37 @@ export default function App() {
 
   const hasParse = pricedParse.matched.length + pricedParse.unmatched.length > 0;
 
+  // Analytics: fire once when the user finishes typing/pasting. Debounced
+  // so we don't spam events on every keystroke during paste streaming.
+  useEffect(() => {
+    if (!hasParse) return;
+    const t = setTimeout(() => {
+      track("paste-parsed", {
+        volume: volumeBucket(pricedParse.totalVol),
+        value: valueBucket(pricedParse.totalValue),
+        matched: pricedParse.matched.length,
+        unmatched: pricedParse.unmatched.length,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw, hasParse]);
+  // (We intentionally key only on raw — pricedParse changes when prices arrive
+  // but that's not a new paste event.)
+
+  // Analytics: fire on every route change.
+  useEffect(() => {
+    if (!hasParse) return;
+    track("route-changed", { origin: origin.id, dest: dest.id, custom: !!origin.custom || !!dest.custom });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin.id, dest.id]);
+
+  // Fire analytics only on explicit user clicks, not on auto-select.
+  const handleSelectSvc = (id: string) => {
+    track("service-selected", { service: id });
+    setSelectedSvc(id);
+  };
+
   return (
     <div className="page" data-layout="single">
       <div className="bg-grid" aria-hidden />
@@ -194,7 +226,7 @@ export default function App() {
               <ServicePicker
                 quotes={quotes}
                 selectedId={selectedQuote?.service.id}
-                setSelectedId={setSelectedSvc}
+                setSelectedId={handleSelectSvc}
                 rushEnabled={rushEnabled}
                 setRushEnabled={setRushEnabled}
               />

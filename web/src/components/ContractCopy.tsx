@@ -1,5 +1,6 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
 import type { Location, Quote } from "../lib/logic";
+import { track } from "../lib/analytics";
 import { Check, Copy } from "./icons";
 
 interface CopyRowProps {
@@ -43,8 +44,19 @@ interface ContractCopyProps {
   dest: Location;
 }
 
-export function ContractCopy({ quote, dest }: ContractCopyProps) {
+export function ContractCopy({ quote, origin, dest }: ContractCopyProps) {
   const [toast, copy] = useClipboard();
+  const trackedCopy = (value: string, label: string) => {
+    copy(value, label);
+    if (quote && quote.eligible) {
+      track("copy", {
+        field: label.toLowerCase(),
+        service: quote.service.id,
+        route: `${origin.id}->${dest.id}`,
+        rushApplied: quote.rushApplied,
+      });
+    }
+  };
   if (!quote || !quote.eligible) {
     return (
       <section className="block copy-block is-empty">
@@ -77,28 +89,28 @@ export function ContractCopy({ quote, dest }: ContractCopyProps) {
           label="Destination"
           value={dest.name}
           hint="exact station/structure string"
-          copy={copy}
+          copy={trackedCopy}
           toast={toast}
         />
         <CopyRow
           label="Shipper"
           value={quote.service.name}
           hint="paste into Recipient / Issue To field"
-          copy={copy}
+          copy={trackedCopy}
           toast={toast}
         />
         <CopyRow
           label="Reward"
           value={String(rew)}
           hint="ISK · paste into Reward field"
-          copy={copy}
+          copy={trackedCopy}
           toast={toast}
         />
         <CopyRow
           label="Collateral"
           value={String(coll)}
           hint="ISK · paste into Collateral field"
-          copy={copy}
+          copy={trackedCopy}
           toast={toast}
         />
       </div>
