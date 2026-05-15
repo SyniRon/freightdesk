@@ -50,28 +50,32 @@ Then `pnpm build:services` regenerates `src/lib/services.generated.ts`.
 
 ## Deploy
 
-Production deploy lives on synicloud behind Cloudflare Tunnel:
+`Dockerfile` is multi-stage (Node SDE/ESI build → Caddy static serve, listens
+on `:8080`). `docker-compose.yml` includes the app, an Umami + Postgres
+analytics sidecar, and a (commented-out) `cloudflared` service for exposing
+via Cloudflare Tunnel. The image build runs the SDE + ESI pipeline inside the
+container (~5 minute first build).
 
-```bash
-ssh claudeuser@synicloud "cd /opt/syni/stacks/freightdesk && sudo git pull && docker compose up -d --build"
-```
-
-The image build runs the SDE + ESI pipeline inside the container (~5 minute first build).
+Copy `.env.example` to `.env`, fill in the secrets, then `docker compose up
+-d --build`. To go public, either uncomment the `cloudflared` service and set
+`TUNNEL_TOKEN`, or swap the `app` service's `ports` back to `expose: ["8080"]`
+and front it with whatever reverse proxy you prefer.
 
 ## Analytics
 
 Self-hosted [Umami](https://umami.is) runs alongside the app via `docker compose`.
-The admin UI is bound to the host's Tailscale interface only — no public exposure.
+The admin UI binds to the address in `UMAMI_BIND` — set this to a private
+interface (loopback, VPN/tailnet, etc.) so it's not publicly exposed. The
+tracking script is reverse-proxied through Caddy so visitor browsers hit it on
+the app's own origin (no third-party tracker).
 
 **First-time setup** (after the stack is up):
 
-1. Find the synicloud Tailscale IP: `ssh claudeuser@synicloud "tailscale ip -4"`
-2. Set `UMAMI_BIND=<that IP>` in `/opt/syni/stacks/freightdesk/.env` and `docker compose up -d`
-3. From a Tailscale-connected device, visit `http://<that IP>:3000`
-4. Log in (default `admin` / `umami`) — **change the password immediately** in Settings → Account
-5. Settings → Websites → Add → name "FreightDesk", domain "freightdesk.syniron.com"
-6. Copy the website UUID, set `VITE_UMAMI_WEBSITE_ID=<uuid>` in `.env`
-7. `docker compose up -d --build` to rebake the bundle with the tracking script
+1. Set `UMAMI_BIND` in `.env` to a private interface IP. `docker compose up -d`.
+2. From a device on that interface, visit `http://<UMAMI_BIND>:3000`.
+3. Log in (default `admin` / `umami`) — **change the password immediately** in Settings → Account.
+4. Settings → Websites → Add. Copy the resulting website UUID.
+5. Set `VITE_UMAMI_WEBSITE_ID=<uuid>` in `.env`, then `docker compose up -d --build` to rebake the bundle with the tracking script embedded.
 
 **Privacy:** No PII, no third-party. Hangar contents never reach Umami — only
 metadata events (paste-parsed with volume bucket, route changed, service selected,
@@ -84,4 +88,4 @@ is auto-derived from `git log` at build time.
 
 ## License
 
-(Project is open source — license TBD.)
+[MIT](./LICENSE)

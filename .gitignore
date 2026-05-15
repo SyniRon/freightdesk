@@ -7,3 +7,8 @@ dist
 .env.local
 e2e/test-results
 e2e/playwright-report
+
+# Local-only / Claude-assisted workflow notes
+.claude/
+docs/superpowers/
+CLAUDE.md
