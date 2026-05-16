@@ -107,7 +107,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
           <div>
             <strong>Minimum contract reward applies.</strong>
             <div>
-              Posted rates compute to {fmtISKFull(quote.breakdown.formulaResult)}; the shipper's {fmtISKFull(quote.breakdown.minReward)} minimum is being used instead. For small shipments this means you pay the floor rather than the rate.
+              Posted rates compute to {fmtISKFull(quote.breakdown.formulaResult)}; the shipper's {fmtISKFull(quote.breakdown.minReward)} minimum applies instead.
             </div>
           </div>
         </div>
