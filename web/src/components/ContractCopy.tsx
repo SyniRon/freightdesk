@@ -73,9 +73,9 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
       </section>
     );
   }
-  const vol = Math.round(quote.vol * 100) / 100;
-  const coll = Math.round(quote.collateral);
-  const rew = Math.round(quote.reward);
+  const vol = Math.round(quote.vol * 100) / 100;        // display only — 2dp
+  const coll = Math.ceil(quote.collateral);             // ceil to match shipper calculators (kumgo parity)
+  const rew = Math.ceil(quote.reward);                  // ceil to match shipper calculators (kumgo parity)
   return (
     <section className="block copy-block">
       <header className="block-h">

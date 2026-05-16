@@ -169,6 +169,15 @@ describe("applyFormula", () => {
   it("flat: constant", () => {
     expect(applyFormula({ kind: "flat", reward: 1_500_000 }, 100, 1_000_000_000)).toBe(1_500_000);
   });
+
+  it("collateral × 0.5% rounds up to match shipper calculators (kumgo parity)", () => {
+    // 49,920,689,422 × 0.005 = 249,603,447.11 → ceil → 249,603,448.
+    // kumgo.space (the published ADFU calculator) shows 249,603,448;
+    // Math.round would give 447 and put us a contract-ISK below the reference.
+    const raw = applyFormula({ kind: "max", ratePerM3: 900, collateralPct: 0.005 }, 0, 49_920_689_422);
+    expect(Math.ceil(raw)).toBe(249_603_448);
+    expect(Math.round(raw)).toBe(249_603_447); // sanity: confirms our parity decision matters
+  });
 });
 
 describe("evaluateServices with per-route formulas", () => {
