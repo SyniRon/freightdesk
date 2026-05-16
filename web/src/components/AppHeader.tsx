@@ -27,7 +27,7 @@ export function AppHeader({ onOpenSettings }: AppHeaderProps) {
           <div className="brand-name">
             FREIGHT/<span className="accent">DESK</span>
           </div>
-          <div className="brand-sub mono">capsuleer shipping helper · v0.1</div>
+          <div className="brand-sub mono">EVE Online shipping helper · v0.1</div>
         </div>
       </div>
       <div className="app-h-r">

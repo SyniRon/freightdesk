@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Arrow, Caret, Check, Copy } from "./icons";
+import { track } from "../lib/analytics";
 
 export function AboutFooter() {
   const [open, setOpen] = useState(false);
@@ -50,13 +51,14 @@ export function AboutFooter() {
           className={"donate-btn mono " + (thanks ? "is-thanks" : "")}
           onClick={() => {
             navigator.clipboard?.writeText(ISK_ADDRESS);
+            track("tip-copy");
             setThanks(true);
             setTimeout(() => setThanks(false), 1800);
           }}
         >
           {thanks ? (
             <>
-              <Check /> Thanks, o7
+              <Check /> Thanks
             </>
           ) : (
             <>
