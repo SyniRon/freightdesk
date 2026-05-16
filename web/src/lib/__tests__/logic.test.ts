@@ -212,6 +212,16 @@ describe("evaluateServices with per-route formulas", () => {
   });
 });
 
+describe("service contract metadata", () => {
+  it("ADFU service exposes contract expiration / days-to-complete / description hint", () => {
+    const adfu = SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
+    expect(adfu.contract).toBeDefined();
+    expect(adfu.contract?.expiration).toBe("1 week");
+    expect(adfu.contract?.daysToComplete).toBe("7 days");
+    expect(adfu.contract?.descriptionHint).toBe("optional");
+  });
+});
+
 describe("recomputeWithPrices", () => {
   it("fills prices, totals, and 120% collateral by default", () => {
     const parse = parseHangarPaste("Drake\t2", TEST_DB);

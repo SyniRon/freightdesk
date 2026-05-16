@@ -7,7 +7,7 @@ import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { Service, ServiceRoute, RouteFormula } from "../src/lib/types";
+import type { Service, ServiceRoute, RouteFormula, ServiceContractMeta } from "../src/lib/types";
 
 const SERVICES_DIR = path.join(import.meta.dirname, "..", "services");
 const OUT_PATH = path.join(import.meta.dirname, "..", "src", "lib", "services.generated.ts");
@@ -61,6 +61,16 @@ function validateRoute(r: any, where: string): ServiceRoute {
            maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral") };
 }
 
+function validateContractMeta(c: any, where: string): ServiceContractMeta | undefined {
+  if (c == null) return undefined;
+  if (typeof c !== "object")            throw new Error(`${where}: contract must be an object`);
+  if (typeof c.expiration !== "string") throw new Error(`${where}: contract.expiration must be string`);
+  if (typeof c.daysToComplete !== "string") throw new Error(`${where}: contract.daysToComplete must be string`);
+  if (c.descriptionHint != null && typeof c.descriptionHint !== "string")
+    throw new Error(`${where}: contract.descriptionHint must be string when present`);
+  return { expiration: c.expiration, daysToComplete: c.daysToComplete, descriptionHint: c.descriptionHint };
+}
+
 function validateService(s: any, where: string, updated: string): Service {
   if (typeof s.id !== "string")    throw new Error(`${where}: id must be string`);
   if (typeof s.name !== "string")  throw new Error(`${where}: name must be string`);
@@ -75,6 +85,7 @@ function validateService(s: any, where: string, updated: string): Service {
     minReward: optNum("minReward"), maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral"),
     routes: s.routes.map((r: any, i: number) => validateRoute(r, `${where}.routes[${i}]`)),
     updated,
+    contract: validateContractMeta(s.contract, where),
   };
 }
 

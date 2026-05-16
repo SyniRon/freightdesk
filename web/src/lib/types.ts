@@ -28,4 +28,11 @@ export interface Service {
   maxCollateral?: number;
   routes: ServiceRoute[];
   updated: string;
+  contract?: ServiceContractMeta;
+}
+
+export interface ServiceContractMeta {
+  expiration: string;       // free-form display, e.g. "1 week"
+  daysToComplete: string;   // free-form display, e.g. "7 days"
+  descriptionHint?: string; // optional, e.g. "optional"
 }
