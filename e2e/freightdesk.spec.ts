@@ -15,6 +15,14 @@ test("empty hero → paste → contract values → copy", async ({ page }) => {
   await expect(page.locator(".service-card")).toHaveCount(1); // alliance-only
   await expect(page.locator(".copy-block:not(.is-empty)")).toBeVisible();
   await expect(page.locator(".copy-row")).toHaveCount(4);
+
+  // New copy-block order — Shipper first matches EVE's Create Contract window.
+  const rows = page.locator(".copy-row");
+  await expect(rows.nth(0)).toContainText("Shipper");
+  await expect(rows.nth(1)).toContainText("Destination");
+  await expect(rows.nth(2)).toContainText("Reward");
+  await expect(rows.nth(3)).toContainText("Collateral");
+
   await page.locator(".copy-row").filter({ hasText: "Destination" }).click();
   await expect(page.locator(".toast")).toBeVisible();
 });

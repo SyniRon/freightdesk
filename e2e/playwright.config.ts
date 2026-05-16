@@ -7,8 +7,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:4173",
     launchOptions: {
-      executablePath: "/snap/bin/chromium",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      ...(process.platform === "linux"
+        ? { executablePath: "/snap/bin/chromium", args: ["--no-sandbox", "--disable-setuid-sandbox"] }
+        : {}),
     },
   },
   projects: [{ name: "chromium", use: devices["Desktop Chrome"] }],

@@ -102,16 +102,16 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
 
       <div className="copy-grid">
         <CopyRow
-          label="Destination"
-          value={dest.name}
-          hint="exact station/structure string"
+          label="Shipper"
+          value={quote.service.name}
+          hint="paste into Recipient / Issue To field"
           copy={trackedCopy}
           toast={toast}
         />
         <CopyRow
-          label="Shipper"
-          value={quote.service.name}
-          hint="paste into Recipient / Issue To field"
+          label="Destination"
+          value={dest.name}
+          hint="exact station/structure string"
           copy={trackedCopy}
           toast={toast}
         />
