@@ -30,4 +30,4 @@ routes:
 contract:
   expiration: 1 week
   daysToComplete: 7 days
-  descriptionHint: optional
+  descriptionHint: optional  # literal value shown to user — meaning EVE's description field can be left blank

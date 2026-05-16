@@ -63,12 +63,16 @@ function validateRoute(r: any, where: string): ServiceRoute {
 
 function validateContractMeta(c: any, where: string): ServiceContractMeta | undefined {
   if (c == null) return undefined;
-  if (typeof c !== "object")            throw new Error(`${where}: contract must be an object`);
-  if (typeof c.expiration !== "string") throw new Error(`${where}: contract.expiration must be string`);
+  if (typeof c !== "object")                throw new Error(`${where}: contract must be an object`);
+  if (typeof c.expiration !== "string")     throw new Error(`${where}: contract.expiration must be string`);
   if (typeof c.daysToComplete !== "string") throw new Error(`${where}: contract.daysToComplete must be string`);
   if (c.descriptionHint != null && typeof c.descriptionHint !== "string")
     throw new Error(`${where}: contract.descriptionHint must be string when present`);
-  return { expiration: c.expiration, daysToComplete: c.daysToComplete, descriptionHint: c.descriptionHint };
+  return {
+    expiration: c.expiration,
+    daysToComplete: c.daysToComplete,
+    ...(c.descriptionHint != null ? { descriptionHint: c.descriptionHint } : {}),
+  };
 }
 
 function validateService(s: any, where: string, updated: string): Service {
