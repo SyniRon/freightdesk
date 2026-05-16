@@ -1,6 +1,5 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
-import type { Location, Quote } from "../lib/logic";
-import { fmtISKFull } from "../lib/logic";
+import { fmtISKFull, type Location, type Quote } from "../lib/logic";
 import { track } from "../lib/analytics";
 import { Check, Copy, Warn } from "./icons";
 
