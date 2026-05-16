@@ -1,0 +1,18 @@
+Oxygen Fuel Block	30,688	Fuel Block			153,440 m3	572,390,120.96 ISK
+Vanadium Hafnite	190,400	Intermediate Materials			38,080 m3	1,317,634,640.00 ISK
+Silicon Diborite	190,400	Intermediate Materials			38,080 m3	178,172,512.00 ISK
+Caesarium Cadmide	190,400	Intermediate Materials			38,080 m3	1,324,793,680.00 ISK
+Silicates	706,888	Moon Materials			35,344.40 m3	244,668,074.56 ISK
+Hydrogen Fuel Block	5,344	Fuel Block			26,720 m3	97,447,572.80 ISK
+Hafnium	518,115	Moon Materials			25,905.75 m3	4,315,908,312.30 ISK
+Cadmium	516,178	Moon Materials			25,808.90 m3	2,444,732,567.16 ISK
+Vanadium	506,888	Moon Materials			25,344.40 m3	1,161,062,446.16 ISK
+Evaporite Deposits	506,888	Moon Materials			25,344.40 m3	111,976,628.08 ISK
+Atmospheric Gases	400,000	Moon Materials			20,000 m3	92,624,000.00 ISK
+Caesium	106,888	Moon Materials			5,344.40 m3	569,963,157.92 ISK
+Unrefined Thulium Hafnite	117	Intermediate Materials			117 m3	
+Phenolic Composites Reaction Formula	16	Composite Reaction Formulas			0.16 m3	320,000,000.00 ISK
+Vanadium Hafnite Reaction Formula	8	Composite Reaction Formulas			0.08 m3	80,000,000.00 ISK
+Silicon Diborite Reaction Formula	8	Composite Reaction Formulas			0.08 m3	80,392,780.56 ISK
+Caesarium Cadmide Reaction Formula	8	Composite Reaction Formulas			0.08 m3	80,000,000.00 ISK
+Unrefined Thulium Hafnite Reaction Formula	1	Composite Reaction Formulas			0.01 m3	10,000,000.00 ISK

@@ -1,0 +1,18 @@
+Vanadium	506888	25344.4	
+Vanadium Hafnite	190400	38080.0	
+Vanadium Hafnite Reaction Formula	8	0.08	
+Unrefined Thulium Hafnite	117	117.0	
+Unrefined Thulium Hafnite Reaction Formula	1	0.01	
+Silicon Diborite	190400	38080.0	
+Silicon Diborite Reaction Formula	8	0.08	
+Silicates	706888	35344.4	
+Phenolic Composites Reaction Formula	16	0.16	
+Oxygen Fuel Block	30688	153440.0	
+Hydrogen Fuel Block	5344	26720.0	
+Hafnium	518115	25905.75	
+Evaporite Deposits	506888	25344.4	
+Caesium	106888	5344.4	
+Caesarium Cadmide	190400	38080.0	
+Caesarium Cadmide Reaction Formula	8	0.08	
+Cadmium	516178	25808.9	
+Atmospheric Gases	400000	20000.0	

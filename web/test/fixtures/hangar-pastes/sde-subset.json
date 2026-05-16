@@ -1,0 +1,20 @@
+{
+  "oxygen fuel block":                              { "id": 4247,  "vol": 5    },
+  "hydrogen fuel block":                            { "id": 4051,  "vol": 5    },
+  "vanadium hafnite":                               { "id": 16659, "vol": 0.2  },
+  "silicon diborite":                               { "id": 16660, "vol": 0.2  },
+  "caesarium cadmide":                              { "id": 16661, "vol": 0.2  },
+  "unrefined thulium hafnite":                      { "id": 16678, "vol": 1    },
+  "silicates":                                      { "id": 16636, "vol": 0.05 },
+  "hafnium":                                        { "id": 16648, "vol": 0.05 },
+  "cadmium":                                        { "id": 16643, "vol": 0.05 },
+  "vanadium":                                       { "id": 16637, "vol": 0.05 },
+  "evaporite deposits":                             { "id": 16635, "vol": 0.05 },
+  "atmospheric gases":                              { "id": 16634, "vol": 0.05 },
+  "caesium":                                        { "id": 16640, "vol": 0.05 },
+  "phenolic composites reaction formula":           { "id": 46211, "vol": 0.01 },
+  "vanadium hafnite reaction formula":              { "id": 46202, "vol": 0.01 },
+  "silicon diborite reaction formula":              { "id": 46203, "vol": 0.01 },
+  "caesarium cadmide reaction formula":             { "id": 46204, "vol": 0.01 },
+  "unrefined thulium hafnite reaction formula":     { "id": 46208, "vol": 0.01 }
+}
