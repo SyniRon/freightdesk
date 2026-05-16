@@ -1,4 +1,5 @@
 {
+  "_comment": "Fixture only — typeIDs are approximate guesses for documentation, NOT canonical SDE IDs. Used by parser.fixtures.test.ts as opaque keys; pricing/SDE lookups don't run in fixture tests.",
   "oxygen fuel block":                              { "id": 4247,  "vol": 5    },
   "hydrogen fuel block":                            { "id": 4051,  "vol": 5    },
   "vanadium hafnite":                               { "id": 16659, "vol": 0.2  },

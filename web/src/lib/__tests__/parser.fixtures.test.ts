@@ -1,10 +1,15 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseHangarPaste } from "../logic";
 import type { ItemEntry } from "../items";
 
-const FIXTURE_DIR = path.resolve(__dirname, "../../../test/fixtures/hangar-pastes");
+const FIXTURE_DIR = path.resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../../test/fixtures/hangar-pastes",
+);
 
 const sdeSubset = JSON.parse(
   fs.readFileSync(path.join(FIXTURE_DIR, "sde-subset.json"), "utf8"),
