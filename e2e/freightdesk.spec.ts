@@ -54,3 +54,23 @@ test("rush toggle adjusts reward", async ({ page }) => {
   // Reward should now reflect +250M
   await expect(rewardLocator).not.toHaveText(beforeText!);
 });
+
+test("min-reward floor warning banner appears for tiny shipments", async ({ page }) => {
+  // A small Tritanium paste → reward well below the 5M ADFU minimum.
+  // Paste first so the RoutePicker becomes visible (it's hidden until there's content).
+  await page.locator("textarea").fill("Tritanium\t100");
+  // Wait for RoutePicker to appear after paste
+  await expect(page.locator(".loc-btn").first()).toBeVisible();
+
+  // Set origin = C-J6MT (alliance staging) and destination = Jita 4-4.
+  await page.locator(".loc-btn").first().click();
+  await page.locator(".loc-opt").filter({ hasText: "C-J6MT" }).first().click();
+  await page.locator(".loc-btn").nth(1).click();
+  await page.locator(".loc-opt").filter({ hasText: "Jita 4-4" }).first().click();
+  await expect(page.locator(".service-card").first()).toBeVisible();
+
+  // The info banner should show — calculated reward is far below the 5M floor.
+  const info = page.locator(".copy-info-warn");
+  await expect(info).toBeVisible();
+  await expect(info).toContainText(/minimum/i);
+});

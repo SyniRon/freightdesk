@@ -1080,6 +1080,25 @@ button { font-family: inherit; }
 .copy-critical-warn > div { flex: 1; }
 .copy-critical-warn > div > div { margin-top: 2px; }
 
+/* ── Info warning banner (min-reward floor etc.) ──────────────────────────── */
+.copy-info-warn {
+  margin-bottom: var(--gap-block-inner);
+  padding: 12px 16px;
+  background: oklch(from var(--warn) l c h / .1);
+  border: 1px solid oklch(from var(--warn) l c h / .45);
+  border-radius: var(--r-1);
+  color: var(--warn);
+  font-size: 13px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.copy-info-warn strong { color: oklch(from var(--warn) l c h / 1.1); display: block; margin-bottom: 4px; }
+.copy-info-warn > svg { flex-shrink: 0; margin-top: 2px; }
+.copy-info-warn > div { flex: 1; }
+.copy-info-warn > div > div { margin-top: 2px; }
+
 /* ── Contract settings reference panel (ContractCopy) ─────────────────────── */
 .copy-contract-meta {
   margin-top: var(--gap-block-inner);

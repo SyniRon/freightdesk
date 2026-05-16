@@ -1,5 +1,6 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
 import type { Location, Quote } from "../lib/logic";
+import { fmtISKFull } from "../lib/logic";
 import { track } from "../lib/analytics";
 import { Check, Copy, Warn } from "./icons";
 
@@ -96,6 +97,18 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
             {warnings.noPriceItems > 0 && (
               <div>{warnings.noPriceItems} item{warnings.noPriceItems === 1 ? "" : "s"} missing price data — collateral undervalued. Review parsed cargo above or adjust the collateral % in settings.</div>
             )}
+          </div>
+        </div>
+      )}
+
+      {quote.breakdown.minReward > 0 && quote.breakdown.formulaResult < quote.breakdown.minReward && (
+        <div className="copy-info-warn">
+          <Warn />
+          <div>
+            <strong>Minimum contract reward applies.</strong>
+            <div>
+              Posted rates compute to {fmtISKFull(quote.breakdown.formulaResult)}; the shipper's {fmtISKFull(quote.breakdown.minReward)} minimum is being used instead. For small shipments this means you pay the floor rather than the rate.
+            </div>
           </div>
         </div>
       )}
