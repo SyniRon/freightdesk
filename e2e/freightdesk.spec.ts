@@ -23,6 +23,13 @@ test("empty hero → paste → contract values → copy", async ({ page }) => {
   await expect(rows.nth(2)).toContainText("Reward");
   await expect(rows.nth(3)).toContainText("Collateral");
 
+  // Contract-window settings panel (Task 3) — informational, not copy buttons.
+  const meta = page.locator(".copy-contract-meta");
+  await expect(meta).toBeVisible();
+  await expect(meta).toContainText("1 week");
+  await expect(meta).toContainText("7 days");
+  await expect(meta).toContainText("optional");
+
   await page.locator(".copy-row").filter({ hasText: "Destination" }).click();
   await expect(page.locator(".toast")).toBeVisible();
 });

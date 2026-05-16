@@ -131,6 +131,28 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
         />
       </div>
 
+      {quote.service.contract && (
+        <div className="copy-contract-meta">
+          <div className="copy-contract-meta-h">Contract settings (set these in the window)</div>
+          <dl>
+            <div>
+              <dt>Expiration</dt>
+              <dd className="mono">{quote.service.contract.expiration}</dd>
+            </div>
+            <div>
+              <dt>Days to complete</dt>
+              <dd className="mono">{quote.service.contract.daysToComplete}</dd>
+            </div>
+            {quote.service.contract.descriptionHint && (
+              <div>
+                <dt>Description</dt>
+                <dd className="mono">{quote.service.contract.descriptionHint}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
+
       <div className="copy-foot">
         <div>
           <span className="dim">Volume</span> <span className="mono">{vol} m³</span>
