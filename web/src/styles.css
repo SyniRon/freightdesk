@@ -1090,11 +1090,12 @@ button { font-family: inherit; }
   font-size: 13px;
 }
 .copy-contract-meta-h {
+  margin: 0 0 8px 0;            /* reset h3 default margins */
   color: var(--muted);
   font-size: 11px;
+  font-weight: 600;             /* keep h3 weight readable but not heavy */
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 8px;
 }
 .copy-contract-meta dl {
   display: grid;
@@ -1103,6 +1104,7 @@ button { font-family: inherit; }
   row-gap: 4px;
   margin: 0;
 }
+/* Grouping wrappers: WHATWG-valid; display:contents exposes dt/dd to the grid. */
 .copy-contract-meta dl > div {
   display: contents;
 }

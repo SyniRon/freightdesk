@@ -133,7 +133,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
 
       {quote.service.contract && (
         <div className="copy-contract-meta">
-          <div className="copy-contract-meta-h">Contract settings (set these in the window)</div>
+          <h3 className="copy-contract-meta-h">EVE contract window settings</h3>
           <dl>
             <div>
               <dt>Expiration</dt>
