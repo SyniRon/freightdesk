@@ -43,6 +43,17 @@ function beforeBreadcrumb(
       return null;
     }
   }
+  // Fetch/xhr breadcrumbs include the full URL including query string.
+  // The Fuzzwork pricing call carries hangar type IDs in `?types=...`,
+  // which would leak hangar contents. Truncate at `?` so only the
+  // origin + path survive.
+  if (breadcrumb.category === "fetch" || breadcrumb.category === "xhr") {
+    const url = breadcrumb.data?.url;
+    if (typeof url === "string") {
+      const q = url.indexOf("?");
+      if (q !== -1) breadcrumb.data!.url = url.slice(0, q);
+    }
+  }
   return breadcrumb;
 }
 
