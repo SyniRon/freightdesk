@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@sentry/react':
-        specifier: ^8.55.2
-        version: 8.55.2(react@18.3.1)
+        specifier: ^10.52.0
+        version: 10.52.0(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -564,79 +564,66 @@ packages:
     resolution: {integrity: sha512-DV6fJoxEYWJOvaZIsok7KrYl0tPvga5OZ2yvKHNNYyk/2roMLqQAbGhr78EQ5YhHpnhLKJD3S1WFusAkmUuV5g==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.60.3':
     resolution: {integrity: sha512-mQKoJAzvuOs6F+TZybQO4GOTSMUu7v0WdxEk24krQ/uUxXoPTtHjuaUuPmFhtBcM4K0ons8nrE3JyhTuCFtT/w==}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.60.3':
     resolution: {integrity: sha512-Whjj2qoiJ6+OOJMGptTYazaJvjOJm+iKHpXQM1P3LzGjt7Ff++Tp7nH4N8J/BUA7R9IHfDyx4DJIflifwnbmIA==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.60.3':
     resolution: {integrity: sha512-4YTNHKqGng5+yiZt3mg77nmyuCfmNfX4fPmyUapBcIk+BdwSwmCWGXOUxhXbBEkFHtoN5boLj/5NON+u5QC9tg==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.60.3':
     resolution: {integrity: sha512-SU3kNlhkpI4UqlUc2VXPGK9o886ZsSeGfMAX2ba2b8DKmMXq4AL7KUrkSWVbb7koVqx41Yczx6dx5PNargIrEA==}
     cpu: [loong64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-loong64-musl@4.60.3':
     resolution: {integrity: sha512-6lDLl5h4TXpB1mTf2rQWnAk/LcXrx9vBfu/DT5TIPhvMhRWaZ5MxkIc8u4lJAmBo6klTe1ywXIUHFjylW505sg==}
     cpu: [loong64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-ppc64-gnu@4.60.3':
     resolution: {integrity: sha512-BMo8bOw8evlup/8G+cj5xWtPyp93xPdyoSN16Zy90Q2QZ0ZYRhCt6ZJSwbrRzG9HApFabjwj2p25TUPDWrhzqQ==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-ppc64-musl@4.60.3':
     resolution: {integrity: sha512-E0L8X1dZN1/Rph+5VPF6Xj2G7JJvMACVXtamTJIDrVI44Y3K+G8gQaMEAavbqCGTa16InptiVrX6eM6pmJ+7qA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-riscv64-gnu@4.60.3':
     resolution: {integrity: sha512-oZJ/WHaVfHUiRAtmTAeo3DcevNsVvH8mbvodjZy7D5QKvCefO371SiKRpxoDcCxB3PTRTLayWBkvmDQKTcX/sw==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-musl@4.60.3':
     resolution: {integrity: sha512-Dhbyh7j9FybM3YaTgaHmVALwA8AkUwTPccyCQ79TG9AJUsMQqgN1DDEZNr4+QUfwiWvLDumW5vdwzoeUF+TNxQ==}
     cpu: [riscv64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-s390x-gnu@4.60.3':
     resolution: {integrity: sha512-cJd1X5XhHHlltkaypz1UcWLA8AcoIi1aWhsvaWDskD1oz2eKCypnqvTQ8ykMNI0RSmm7NkTdSqSSD7zM0xa6Ig==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.60.3':
     resolution: {integrity: sha512-DAZDBHQfG2oQuhY7mc6I3/qB4LU2fQCjRvxbDwd/Jdvb9fypP4IJ4qmtu6lNjes6B531AI8cg1aKC2di97bUxA==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.60.3':
     resolution: {integrity: sha512-cRxsE8c13mZOh3vP+wLDxpQBRrOHDIGOWyDL93Sy0Ga8y515fBcC2pjUfFwUe5T7tqvTvWbCpg1URM/AXdWIXA==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-openbsd-x64@4.60.3':
     resolution: {integrity: sha512-QaWcIgRxqEdQdhJqW4DJctsH6HCmo5vHxY0krHSX4jMtOqfzC+dqDGuHM87bu4H8JBeibWx7jFz+h6/4C8wA5Q==}
@@ -668,33 +655,33 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@sentry-internal/browser-utils@8.55.2':
-    resolution: {integrity: sha512-GnKod+gL/Y+1FUM/RGV8q6le1CoyiGbT40MitEK7eVwWe+bfTRq1gN7ioupyHFMUg1RlQkDQ4/sENmio/uow5A==}
-    engines: {node: '>=14.18'}
+  '@sentry-internal/browser-utils@10.52.0':
+    resolution: {integrity: sha512-x/yEPZdpH6NGQeoeQnV9tj8reAH8twNttiltGZl2o8Rk7sQeUfe7E8yuYP2XbJ2RqyZK5qRS3COrNyMPzf6KFA==}
+    engines: {node: '>=18'}
 
-  '@sentry-internal/feedback@8.55.2':
-    resolution: {integrity: sha512-XQy//NWbL0mLLM5w8wNDWMNpXz39VUyW2397dUrH8++kR63WhUVAvTOtL0o0GMVadSAzl1b08oHP9zSUNFQwcg==}
-    engines: {node: '>=14.18'}
+  '@sentry-internal/feedback@10.52.0':
+    resolution: {integrity: sha512-5kAn1W8ZvCuHtEHXpq6iRkUMdNCilwww+YxaN2yofVrCivAbB3Ha5JJUMqmWOPW0pC27zGYmoJMIDvG+PczUxA==}
+    engines: {node: '>=18'}
 
-  '@sentry-internal/replay-canvas@8.55.2':
-    resolution: {integrity: sha512-P/jGiuR7dRLG9IzD/463fLgiibyYceauav/9prRG0ZxJm1AtuO02OKball2Fs3bbzdzwHCTlcsUuL2ivDF4b5A==}
-    engines: {node: '>=14.18'}
+  '@sentry-internal/replay-canvas@10.52.0':
+    resolution: {integrity: sha512-BI5ie4dxPuUJ344CXVSnAxY1xZCbghglPSCIlTOYODpR9so9yo5IZh+Mwspt0oWsUMaxWJiQSNYlbPWi7WDavg==}
+    engines: {node: '>=18'}
 
-  '@sentry-internal/replay@8.55.2':
-    resolution: {integrity: sha512-+W43Z697EVe/OgpGW07B773sa8xO1UbpnW0Cr+E+3FMDb6ZbXlaBUoagPTUkkQPdwBe35SDh6r8y2M3EOPGbxg==}
-    engines: {node: '>=14.18'}
+  '@sentry-internal/replay@10.52.0':
+    resolution: {integrity: sha512-diywyuc/H7VTUR+W5ryVmLF+0X4UP1OskMqb6V8RSAvJHcj2JmIm7uP+Fc6ACTno+b6AUShwT/L4xVXzO6X9Cw==}
+    engines: {node: '>=18'}
 
-  '@sentry/browser@8.55.2':
-    resolution: {integrity: sha512-xHuPIEKhx9zw5quWvv4YgZprnwoVMCfxIhmOIf6KJ9iizyUHeUDcKpLS59xERroqwX4RpvK+l/27AZu4zfZlzQ==}
-    engines: {node: '>=14.18'}
+  '@sentry/browser@10.52.0':
+    resolution: {integrity: sha512-ijL9jN86oXwXQWbwhPlEb70ODJSEmjxQEQdnZkC4gDWbjswcwvRsVJPYk+1xl2ir2iZixRIHipVxDcLwian35g==}
+    engines: {node: '>=18'}
 
-  '@sentry/core@8.55.2':
-    resolution: {integrity: sha512-YlEBwybUcOQ/KjMHDmof1vwweVnBtBxYlQp7DE3fOdtW4pqqdHWTnTntQs4VgYfxzjJYgtkd9LHlGtg8qy+JVQ==}
-    engines: {node: '>=14.18'}
+  '@sentry/core@10.52.0':
+    resolution: {integrity: sha512-VA/kAqLhkMnRWY2RXdBLyTemR9D4m7MVRy/gyapoq9yvllVPx9WXbvKgnMP2LQp7mFgT/oLFvw58aQKaYTGn3A==}
+    engines: {node: '>=18'}
 
-  '@sentry/react@8.55.2':
-    resolution: {integrity: sha512-1TPfKZYkJal2Dyt2W0tf1roOZmu7sqr6/dTqjdsuu2WgGTilMEreK26YqB8ROOYdMjkVJpNCcIKXQHyMp2eCwA==}
-    engines: {node: '>=14.18'}
+  '@sentry/react@10.52.0':
+    resolution: {integrity: sha512-2m72QCsja2cJJHD0ALxRnVt0qMEC2FV4LSi6AAiEdEG4lTb6mgcxavx5pJrW90jE+6dMGPbUz4q8c9vi4jh1qQ==}
+    engines: {node: '>=18'}
     peerDependencies:
       react: ^16.14.0 || 17.x || 18.x || 19.x
 
@@ -934,9 +921,6 @@ packages:
   get-tsconfig@4.14.0:
     resolution: {integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==}
 
-  hoist-non-react-statics@3.3.2:
-    resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
-
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
@@ -1038,9 +1022,6 @@ packages:
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
     peerDependencies:
       react: ^18.3.1
-
-  react-is@16.13.1:
-    resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
@@ -1664,39 +1645,38 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.60.3':
     optional: true
 
-  '@sentry-internal/browser-utils@8.55.2':
+  '@sentry-internal/browser-utils@10.52.0':
     dependencies:
-      '@sentry/core': 8.55.2
+      '@sentry/core': 10.52.0
 
-  '@sentry-internal/feedback@8.55.2':
+  '@sentry-internal/feedback@10.52.0':
     dependencies:
-      '@sentry/core': 8.55.2
+      '@sentry/core': 10.52.0
 
-  '@sentry-internal/replay-canvas@8.55.2':
+  '@sentry-internal/replay-canvas@10.52.0':
     dependencies:
-      '@sentry-internal/replay': 8.55.2
-      '@sentry/core': 8.55.2
+      '@sentry-internal/replay': 10.52.0
+      '@sentry/core': 10.52.0
 
-  '@sentry-internal/replay@8.55.2':
+  '@sentry-internal/replay@10.52.0':
     dependencies:
-      '@sentry-internal/browser-utils': 8.55.2
-      '@sentry/core': 8.55.2
+      '@sentry-internal/browser-utils': 10.52.0
+      '@sentry/core': 10.52.0
 
-  '@sentry/browser@8.55.2':
+  '@sentry/browser@10.52.0':
     dependencies:
-      '@sentry-internal/browser-utils': 8.55.2
-      '@sentry-internal/feedback': 8.55.2
-      '@sentry-internal/replay': 8.55.2
-      '@sentry-internal/replay-canvas': 8.55.2
-      '@sentry/core': 8.55.2
+      '@sentry-internal/browser-utils': 10.52.0
+      '@sentry-internal/feedback': 10.52.0
+      '@sentry-internal/replay': 10.52.0
+      '@sentry-internal/replay-canvas': 10.52.0
+      '@sentry/core': 10.52.0
 
-  '@sentry/core@8.55.2': {}
+  '@sentry/core@10.52.0': {}
 
-  '@sentry/react@8.55.2(react@18.3.1)':
+  '@sentry/react@10.52.0(react@18.3.1)':
     dependencies:
-      '@sentry/browser': 8.55.2
-      '@sentry/core': 8.55.2
-      hoist-non-react-statics: 3.3.2
+      '@sentry/browser': 10.52.0
+      '@sentry/core': 10.52.0
       react: 18.3.1
 
   '@testing-library/dom@10.4.1':
@@ -1981,10 +1961,6 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
-  hoist-non-react-statics@3.3.2:
-    dependencies:
-      react-is: 16.13.1
-
   html-encoding-sniffer@6.0.0:
     dependencies:
       '@exodus/bytes': 1.15.0
@@ -2084,8 +2060,6 @@ snapshots:
       loose-envify: 1.4.0
       react: 18.3.1
       scheduler: 0.23.2
-
-  react-is@16.13.1: {}
 
   react-is@17.0.2: {}
 
