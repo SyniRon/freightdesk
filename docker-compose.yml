@@ -4,6 +4,8 @@ services:
       context: .
       args:
         VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_ENV: ${VITE_SENTRY_ENV:-production}
     restart: unless-stopped
     # App is reached by cloudflared over the internal docker network at app:8080.
     # No host-port binding — public traffic comes in via the cloudflared tunnel.
