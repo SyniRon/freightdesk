@@ -15,6 +15,7 @@ function CopyRow({ label, value, hint, copy, toast }: CopyRowProps) {
   const just = toast && toast.value === value;
   return (
     <button
+      data-sensitive="true"
       className={"copy-row " + (just ? "is-copied" : "")}
       onClick={() => copy(value, label)}
     >

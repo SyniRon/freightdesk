@@ -40,6 +40,7 @@ export function PasteBlock({ raw, setRaw, parse, onLoadExample, itemsLoading, it
 
       <div className="paste-wrap">
         <textarea
+          data-sensitive="true"
           className="paste-area"
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
