@@ -1,0 +1,42 @@
+# Dependabot — supply-chain hygiene with a cooldown window.
+#
+# Per the syniron CLAUDE.md "Repo defaults": every repo gets a weekly
+# bump cadence and a per-ecosystem `cooldown:` block. The cooldown is
+# the tension between (a) waiting long enough that a freshly-published
+# malicious version has a chance of being flagged, and (b) not letting
+# us sit on stale versions forever. default-days: 7 is the global bar.
+#
+# This is the first-implementation reference config for the syniron
+# rollout (cavbot2 + 7 others copy this shape).
+
+version: 2
+updates:
+  # Frontend (Vite + React + TS) and e2e (Playwright). Both directories
+  # have their own pnpm-lockfiles; `directories:` (plural) covers both
+  # under one entry.
+  - package-ecosystem: "npm"
+    directories:
+      - "/web"
+      - "/e2e"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+
+  # Dockerfile base images (node:24-alpine, caddy:2-alpine).
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+
+  # docker-compose service image pins (postgres:16-alpine,
+  # ghcr.io/umami-software/umami:postgresql-latest, cloudflare/cloudflared).
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
