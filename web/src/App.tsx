@@ -16,6 +16,7 @@ import {
   type Location,
 } from "./lib/logic";
 import { fetchPrices, priceFor, PricingError, type PriceSource } from "./lib/pricing";
+import { captureError } from "./lib/sentry";
 import { LS } from "./lib/storage";
 import { AppHeader } from "./components/AppHeader";
 import { AboutFooter } from "./components/AboutFooter";
@@ -124,8 +125,15 @@ export default function App() {
           if ((e as { name?: string })?.name === "AbortError") return;
           if (e instanceof PricingError) {
             setPricesError(e.kind);
+            // Skip rate-limited — 429 is an expected upstream state and the
+            // UI surfaces it via the toast. server-error + network are real
+            // problems worth a Sentry event.
+            if (e.kind !== "rate-limited") {
+              captureError("pricing fetch failed", e, { kind: e.kind, idCount: ids.length });
+            }
           } else {
             setPricesError("network");
+            captureError("pricing fetch failed (unknown)", e, { idCount: ids.length });
           }
         })
         .finally(() => { if (!cancelled) setPricesLoading(false); });
