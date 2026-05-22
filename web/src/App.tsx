@@ -49,6 +49,7 @@ export default function App() {
   const [selectedSvc, setSelectedSvc] = useState<string>(() => LS.get<string>("svc", "adfu-kum-n-go"));
   const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => {
     const raw = LS.get<any>("settings", DEFAULT_SETTINGS);
     // Migrate: old shape had "sell 5%"/"sell median"/"buy 95%" + collOverride string.
@@ -215,7 +216,10 @@ export default function App() {
       />
 
       <div className="wrap">
-        <AppHeader onOpenSettings={() => setSettingsOpen(true)} />
+        <AppHeader
+          onOpenSettings={() => setSettingsOpen(true)}
+          onHowItWorksClick={() => setHowItWorksOpen(true)}
+        />
 
         {/* Empty hero: enters when paste is cleared (after populated has left),
             exits immediately when first paste lands. */}
@@ -280,7 +284,10 @@ export default function App() {
           </div>
         </main>
 
-        <AboutFooter />
+        <AboutFooter
+          open={howItWorksOpen}
+          onToggle={() => setHowItWorksOpen((o) => !o)}
+        />
       </div>
 
       <SettingsDrawer

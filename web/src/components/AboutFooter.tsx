@@ -2,14 +2,18 @@ import { useState } from "react";
 import { Arrow, Caret, Check, Copy } from "./icons";
 import { track } from "../lib/analytics";
 
-export function AboutFooter() {
-  const [open, setOpen] = useState(false);
+interface AboutFooterProps {
+  open: boolean;
+  onToggle: () => void;
+}
+
+export function AboutFooter({ open, onToggle }: AboutFooterProps) {
   const [thanks, setThanks] = useState(false);
   // STUB: real ISK destination (corp or character) to be filled in pre-launch.
   const ISK_ADDRESS = "Delve Time Unit Expenditures";
   return (
     <footer className="app-foot" id="about">
-      <button className="about-toggle" onClick={() => setOpen((o) => !o)}>
+      <button className="about-toggle" onClick={onToggle}>
         How it works <Caret style={{ transform: open ? "rotate(180deg)" : "" }} />
       </button>
       {open && (
@@ -27,16 +31,31 @@ export function AboutFooter() {
             warning.
           </p>
           <div className="foot-row">
-            <a className="link-arrow" href="#">
+            <a
+              className="link-arrow"
+              href="https://github.com/SyniRon/freightdesk"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               GitHub repository <Arrow />
             </a>
             <span className="sep">·</span>
-            <a className="link-arrow" href="#">
+            <a
+              className="link-arrow"
+              href="https://github.com/SyniRon/freightdesk/tree/main/web/services"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Submit a service (PR)
               <Arrow />
             </a>
             <span className="sep">·</span>
-            <a className="link-arrow" href="#">
+            <a
+              className="link-arrow"
+              href="https://developers.eveonline.com/license-agreement"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               EVE third-party policy <Arrow />
             </a>
           </div>
