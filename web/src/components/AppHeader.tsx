@@ -2,9 +2,10 @@ import { Cog } from "./icons";
 
 interface AppHeaderProps {
   onOpenSettings: () => void;
+  onHowItWorksClick: () => void;
 }
 
-export function AppHeader({ onOpenSettings }: AppHeaderProps) {
+export function AppHeader({ onOpenSettings, onHowItWorksClick }: AppHeaderProps) {
   return (
     <header className="app-h">
       <div className="brand">
@@ -31,7 +32,7 @@ export function AppHeader({ onOpenSettings }: AppHeaderProps) {
         </div>
       </div>
       <div className="app-h-r">
-        <a className="link-arrow dim" href="#about">
+        <a className="link-arrow dim" href="#about" onClick={onHowItWorksClick}>
           How it works
         </a>
         <button className="btn-icon" onClick={onOpenSettings} aria-label="Settings">
