@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: build + vitest + playwright smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            e2e/pnpm-lock.yaml
+
+      # Cache the ~50MB CCP SDE zip across runs. scripts/build-sde.ts
+      # already self-invalidates after 7 days, so the same key is safe to
+      # keep — a stale entry will just trigger one re-download.
+      - name: Cache SDE zip
+        uses: actions/cache@v4
+        with:
+          path: web/scripts/cache
+          key: freightdesk-sde-zip-v1
+
+      - name: Install web deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install e2e deps
+        working-directory: e2e
+        run: pnpm install --frozen-lockfile
+
+      # `pnpm build` chains: build:sde → build:services → tsc -b → vite build.
+      # This is also our typecheck gate.
+      - name: Build web (SDE + services + tsc + vite)
+        working-directory: web
+        run: pnpm build
+
+      - name: Run vitest
+        working-directory: web
+        run: pnpm test
+
+      - name: Install Playwright Chromium
+        working-directory: e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright smoke
+        working-directory: e2e
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
