@@ -41,7 +41,7 @@ services:
         condition: service_healthy
 
   umami-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: umami
