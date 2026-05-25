@@ -3,22 +3,30 @@
 // Volume bucketing keeps hangar OPSEC sensitive shapes off the wire — only
 // buckets travel, never raw values.
 
-type PageviewProps = {
-  website?: string;
-  hostname?: string;
-  language?: string;
-  referrer?: string;
-  screen?: string;
-  title?: string;
-  url?: string;
-};
-
 declare global {
   interface Window {
     umami?: {
       track: {
         (name: string, props?: Record<string, unknown>): void;
-        (propsFn: (defaults: PageviewProps) => PageviewProps): void;
+        (
+          propsFn: (defaults: {
+            website?: string;
+            hostname?: string;
+            language?: string;
+            referrer?: string;
+            screen?: string;
+            title?: string;
+            url?: string;
+          }) => {
+            website?: string;
+            hostname?: string;
+            language?: string;
+            referrer?: string;
+            screen?: string;
+            title?: string;
+            url?: string;
+          },
+        ): void;
       };
     };
   }
@@ -30,8 +38,8 @@ export function track(name: string, props?: Record<string, unknown>): void {
 }
 
 // Records a virtual pageview by overriding `url` (and optionally `title`) on
-// Umami's default pageview shape. Used for SPA route changes so engaged
-// multi-route sessions don't register as 1-pageview bounces.
+// the pageview Umami would otherwise auto-record. Used for SPA route changes
+// so engaged multi-route sessions don't register as 1-pageview bounces.
 export function trackPageview(url: string, title?: string): void {
   if (typeof window === "undefined") return;
   window.umami?.track((props) => ({ ...props, url, ...(title ? { title } : {}) }));

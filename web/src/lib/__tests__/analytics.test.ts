@@ -82,4 +82,15 @@ describe("trackPageview", () => {
     const out = arg({ url: "/", title: "preserved" });
     expect(out).toEqual({ url: "/route/A/B", title: "preserved" });
   });
+
+  it("treats empty-string title as omitted (preserves default)", () => {
+    const fn = vi.fn();
+    (window as any).umami = { track: fn };
+    trackPageview("/route/A/B", "");
+    const arg = fn.mock.calls[0][0] as (p: Record<string, unknown>) => Record<string, unknown>;
+    expect(arg({ url: "/", title: "preserved" })).toEqual({
+      url: "/route/A/B",
+      title: "preserved",
+    });
+  });
 });
