@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { track, valueBucket, volumeBucket } from "../analytics";
+import { track, trackPageview, valueBucket, volumeBucket } from "../analytics";
 
 describe("volumeBucket", () => {
   it("classifies common volumes", () => {
@@ -37,5 +37,60 @@ describe("track", () => {
     (window as any).umami = { track: fn };
     track("foo", { x: 1 });
     expect(fn).toHaveBeenCalledWith("foo", { x: 1 });
+  });
+});
+
+describe("trackPageview", () => {
+  beforeEach(() => {
+    (window as any).umami = undefined;
+  });
+
+  it("no-ops when window.umami is absent", () => {
+    expect(() => trackPageview("/route/A/B")).not.toThrow();
+  });
+
+  it("calls umami.track with a function that overrides url", () => {
+    const fn = vi.fn();
+    (window as any).umami = { track: fn };
+    trackPageview("/route/A/B");
+    expect(fn).toHaveBeenCalledTimes(1);
+    const arg = fn.mock.calls[0][0] as (p: Record<string, unknown>) => Record<string, unknown>;
+    expect(typeof arg).toBe("function");
+    expect(arg({ url: "/", title: "old", referrer: "x" })).toEqual({
+      url: "/route/A/B",
+      title: "old",
+      referrer: "x",
+    });
+  });
+
+  it("overrides title when provided", () => {
+    const fn = vi.fn();
+    (window as any).umami = { track: fn };
+    trackPageview("/route/A/B", "Route A → B");
+    const arg = fn.mock.calls[0][0] as (p: Record<string, unknown>) => Record<string, unknown>;
+    expect(arg({ url: "/", title: "old" })).toEqual({
+      url: "/route/A/B",
+      title: "Route A → B",
+    });
+  });
+
+  it("does not include title in override when omitted", () => {
+    const fn = vi.fn();
+    (window as any).umami = { track: fn };
+    trackPageview("/route/A/B");
+    const arg = fn.mock.calls[0][0] as (p: Record<string, unknown>) => Record<string, unknown>;
+    const out = arg({ url: "/", title: "preserved" });
+    expect(out).toEqual({ url: "/route/A/B", title: "preserved" });
+  });
+
+  it("treats empty-string title as omitted (preserves default)", () => {
+    const fn = vi.fn();
+    (window as any).umami = { track: fn };
+    trackPageview("/route/A/B", "");
+    const arg = fn.mock.calls[0][0] as (p: Record<string, unknown>) => Record<string, unknown>;
+    expect(arg({ url: "/", title: "preserved" })).toEqual({
+      url: "/route/A/B",
+      title: "preserved",
+    });
   });
 });
