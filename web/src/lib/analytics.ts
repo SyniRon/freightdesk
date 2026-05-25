@@ -1,12 +1,25 @@
 // Umami analytics helper.
 // `track()` is a no-op if Umami didn't load (dev / no VITE_UMAMI_WEBSITE_ID).
-// Volume bucketing keeps hangar OPSEC sensitive shapes off the wire — per
-// the CLAUDE.md design pin, the server only sees buckets, never raw values.
+// Volume bucketing keeps hangar OPSEC sensitive shapes off the wire — only
+// buckets travel, never raw values.
+
+type PageviewProps = {
+  website?: string;
+  hostname?: string;
+  language?: string;
+  referrer?: string;
+  screen?: string;
+  title?: string;
+  url?: string;
+};
 
 declare global {
   interface Window {
     umami?: {
-      track: (name: string, props?: Record<string, unknown>) => void;
+      track: {
+        (name: string, props?: Record<string, unknown>): void;
+        (propsFn: (defaults: PageviewProps) => PageviewProps): void;
+      };
     };
   }
 }
@@ -14,6 +27,14 @@ declare global {
 export function track(name: string, props?: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   window.umami?.track(name, props);
+}
+
+// Records a virtual pageview by overriding `url` (and optionally `title`) on
+// Umami's default pageview shape. Used for SPA route changes so engaged
+// multi-route sessions don't register as 1-pageview bounces.
+export function trackPageview(url: string, title?: string): void {
+  if (typeof window === "undefined") return;
+  window.umami?.track((props) => ({ ...props, url, ...(title ? { title } : {}) }));
 }
 
 /** Bucket a volume (m³) into a coarse label. Privacy: never log raw m³. */

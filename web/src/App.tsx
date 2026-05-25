@@ -6,7 +6,7 @@
 // document element in case we surface a settings toggle later.
 
 import { useEffect, useMemo, useState } from "react";
-import { track, valueBucket, volumeBucket } from "./lib/analytics";
+import { track, trackPageview, valueBucket, volumeBucket } from "./lib/analytics";
 import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import {
   evaluateServices,
@@ -193,10 +193,13 @@ export default function App() {
   // (We intentionally key only on raw — pricedParse changes when prices arrive
   // but that's not a new paste event.)
 
-  // Analytics: fire on every route change.
+  // Analytics: fire on every route change. The custom event carries property
+  // data for funnel analysis; the virtual pageview is what bounce-rate metrics
+  // count, so multi-route sessions stop reading as 1-pageview bounces.
   useEffect(() => {
     if (!hasParse) return;
     track("route-changed", { origin: origin.id, dest: dest.id, custom: !!origin.custom || !!dest.custom });
+    trackPageview(`/route/${origin.id}/${dest.id}`);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin.id, dest.id]);
 
