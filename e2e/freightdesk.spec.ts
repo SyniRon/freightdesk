@@ -55,6 +55,45 @@ test("rush toggle adjusts reward", async ({ page }) => {
   await expect(rewardLocator).not.toHaveText(beforeText!);
 });
 
+test("active override surfaces a chip + on-card annotation; Clear all persists", async ({ page }) => {
+  // Seed a persisted collateral override (as if set in a prior session) and reload
+  // so the chip surfaces on first load without opening Settings.
+  await page.evaluate(() => {
+    const settings = {
+      priceSource: "sell",
+      collateralPct: 120,
+      defaultOrigin: "jita44",
+      defaultDest: "cj6mt",
+      overrideCollateral: { enabled: true, value: 100000000000 },
+      overrideVol: { enabled: false, value: 0 },
+      overrideRate: { enabled: false, value: 0 },
+    };
+    localStorage.setItem("eveship.settings", JSON.stringify(settings));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /Load example into paste box/i }).click();
+
+  // Global chip names the active override.
+  const chip = page.locator(".overrides-chip");
+  await expect(chip).toBeVisible();
+  await expect(chip).toContainText(/Overrides active/i);
+  await expect(chip).toContainText("collateral");
+
+  // On-card annotation: a struck market figure + an override tag.
+  const card = page.locator(".service-card").first();
+  await expect(card.locator(".svc-struck").first()).toBeVisible();
+  await expect(card.locator(".override-tag").first()).toBeVisible();
+
+  // Clear all disables the override, removes the chip, and persists across reload.
+  await page.getByRole("button", { name: /clear all/i }).click();
+  await expect(chip).toHaveCount(0);
+  // The pasted cargo persists, so after reload the results area is already
+  // populated — the chip must stay gone because the override is cleared in LS.
+  await page.reload();
+  await expect(page.locator(".service-card").first()).toBeVisible();
+  await expect(page.locator(".overrides-chip")).toHaveCount(0);
+});
+
 test("min-reward floor warning banner appears for tiny shipments", async ({ page }) => {
   // A small Tritanium paste → reward well below the 5M ADFU minimum.
   // Paste first so the RoutePicker becomes visible (it's hidden until there's content).

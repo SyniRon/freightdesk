@@ -2,6 +2,20 @@ import { useState } from "react";
 import { daysSince, fmtISK, fmtISKFull, fmtVol, type Quote } from "../lib/logic";
 import { Caret, Warn } from "./icons";
 
+// Inline "override" tag for a card line whose value comes from a direct
+// override rather than market data (issue #39). Reuses the established
+// advisory tag treatment (the `stale` tag), not a new visual language.
+function OverrideTag() {
+  return (
+    <span
+      className="stale-tag override-tag"
+      title="This value comes from a manual override in Settings, not market data."
+    >
+      {" "}override
+    </span>
+  );
+}
+
 // A splittable quote renders as a visible card (selectable, like eligible) but
 // swaps the copy/selection affordances for a read-only over-cap advisory.
 // Eligible and splittable are both "shown as a card" states; only ineligible
@@ -50,6 +64,12 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
                 ? fmtISK(q.split!.allInCost) + " ISK"
                 : "—"}
           </div>
+          {shown && q.overridden.vol && (
+            <div className="svc-reward-override mono">
+              <span className="svc-struck">{fmtVol(q.market.vol)}</span> {fmtVol(q.vol)}
+              <OverrideTag />
+            </div>
+          )}
         </div>
       </div>
 
@@ -57,17 +77,37 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
         <div className="svc-cell">
           <span className="svc-k">Collateral</span>
           <span className="svc-v mono">
-            {shown ? fmtISK(q.collateral) + " ISK" : "—"}
+            {!shown ? (
+              "—"
+            ) : q.overridden.collateral ? (
+              <>
+                <span className="svc-struck">{fmtISK(q.market.collateral) + " ISK"}</span>{" "}
+                {fmtISK(q.collateral) + " ISK"}
+                <OverrideTag />
+              </>
+            ) : (
+              fmtISK(q.collateral) + " ISK"
+            )}
           </span>
         </div>
         <div className="svc-cell">
           <span className="svc-k">Rate</span>
           <span className="svc-v mono">
-            {q.route && q.breakdown.formula
-              ? q.breakdown.formula.kind === "flat"
-                ? "flat"
-                : `${q.breakdown.formula.ratePerM3} / m³`
-              : "—"}
+            {q.route && q.breakdown.formula ? (
+              q.breakdown.formula.kind === "flat" ? (
+                "flat"
+              ) : q.overridden.rate ? (
+                <>
+                  <span className="svc-struck">{`${q.market.ratePerM3} / m³`}</span>{" "}
+                  {`${q.ratePerM3} / m³`}
+                  <OverrideTag />
+                </>
+              ) : (
+                `${q.breakdown.formula.ratePerM3} / m³`
+              )
+            ) : (
+              "—"
+            )}
           </span>
         </div>
         <div className="svc-cell">

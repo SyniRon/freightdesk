@@ -607,6 +607,8 @@ button { font-family: inherit; }
   color: var(--muted-2); margin-bottom: 2px;
 }
 .svc-reward-v { font-size: 20px; font-weight: 500; color: var(--accent); }
+/* Volume override note under the reward — the card-face signal a vol override drives the quote (#39). */
+.svc-reward-override { font-size: 11px; margin-top: 3px; color: var(--fg-1); }
 .svc-row-2 {
   margin-top: 14px;
   padding-top: 14px;
@@ -620,6 +622,10 @@ button { font-family: inherit; }
 .svc-v { font-size: 13.5px; color: var(--fg-1); }
 .svc-v.is-stale { color: var(--warn); }
 .stale-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-left: 4px; opacity: 0.8; }
+/* Market figure displaced by a direct override — struck, dimmed, kept for context (issue #39). */
+.svc-struck { text-decoration: line-through; color: var(--muted-2); opacity: 0.7; }
+/* The "override" line tag reuses the advisory tag treatment, tinted accent. */
+.override-tag { color: var(--accent); opacity: 1; }
 .svc-blocked {
   margin-top: 14px;
   padding: 9px 12px;
@@ -1012,6 +1018,45 @@ button { font-family: inherit; }
   color: var(--accent-on); background: var(--accent);
   vertical-align: middle;
 }
+
+/* ── "Overrides active" chip (issue #40) ──────────────────────────────────── */
+/* Persistent reminder near the top of the results area that a manual override
+   is skewing every quote. Reuses --warn (advisory) accents, not a new color. */
+.overrides-chip {
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  background: oklch(from var(--warn) l c h / .09);
+  border: 1px solid oklch(from var(--warn) l c h / .35);
+  border-radius: var(--r-1);
+  color: var(--warn);
+  font-size: 12.5px;
+}
+.overrides-chip svg { flex-shrink: 0; }
+.overrides-chip-text { color: var(--fg-1); }
+.overrides-chip-text b { color: var(--warn); font-weight: 600; }
+.overrides-chip-clear {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid oklch(from var(--warn) l c h / .45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--warn);
+  font-size: 11.5px; font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.overrides-chip-clear:hover { background: oklch(from var(--warn) l c h / .15); }
+.overrides-chip-dismiss {
+  display: grid; place-items: center;
+  width: 22px; height: 22px;
+  border: none; border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.overrides-chip-dismiss:hover { background: oklch(from var(--warn) l c h / .12); color: var(--warn); }
 
 /* ── Reveal: enter/exit animation primitive ───────────────────────────────── */
 .reveal {
