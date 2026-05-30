@@ -163,7 +163,7 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
         );
       })()}
 
-      {q.status === "eligible" && q.breakdown.formulaResult < q.breakdown.minReward && (
+      {q.status === "eligible" && q.breakdown.flooredToMinimum && (
         <div className="svc-coll-note">
           <Warn /> This shipment is too small — the shipper's minimum reward applies instead of the per-volume rate.
         </div>

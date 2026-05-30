@@ -37,6 +37,12 @@ function firstCard(): HTMLElement {
   return name.closest(".service-card") as HTMLElement;
 }
 
+// The card surface for the ITL service (a clamped-rate route).
+function itlCard(): HTMLElement {
+  const name = screen.getAllByText("Imperial Transcontinental Logistics")[0];
+  return name.closest(".service-card") as HTMLElement;
+}
+
 describe("ServicePicker override annotations", () => {
   it("with no overrides, no card line carries an override tag", () => {
     renderPicker(quotesFor());
@@ -121,6 +127,39 @@ describe("ServicePicker min-reward floor advisory", () => {
   it("still shows the floor advisory with rush enabled on a base-floored load", () => {
     renderPicker(flooredQuotes(true));
     const card = firstCard();
+    expect(within(card).getByText(FLOOR_RE)).toBeInTheDocument();
+  });
+
+  // Regression (#38): ITL uses a `clamped-rate` formula, so the 5M floor is
+  // applied INSIDE applyFormula — breakdown.formulaResult is already 5M and the
+  // old `formulaResult < minReward` trigger never fired. A tiny load whose raw
+  // per-volume (2,500 × 900 = 2.25M) is lifted to the 5M floor must still show
+  // the advisory.
+  function itlFlooredQuotes(rushEnabled = false): Quote[] {
+    return evaluateServices(base, cj6mt, jita, rushEnabled, {
+      vol: 2_500,
+      collateral: 100_000_000, // 100M × 0.5% = 500k, below floor too
+    });
+  }
+
+  it("shows the floor advisory for a clamped-rate (ITL) service lifted to its floor", () => {
+    renderPicker(itlFlooredQuotes());
+    const card = itlCard();
+    const note = within(card).getByText(FLOOR_RE);
+    expect(note.closest(".svc-coll-note")).not.toBeNull();
+    expect(note.closest(".svc-coll-note")!.querySelector("svg")).not.toBeNull();
+  });
+
+  it("shows no floor advisory for ITL when the clamped raw clears the floor", () => {
+    // 10,000 m³ × 900 = 9M, above the 5M floor → no lift.
+    renderPicker(quotesFor());
+    const card = itlCard();
+    expect(within(card).queryByText(FLOOR_RE)).toBeNull();
+  });
+
+  it("still shows the ITL floor advisory with rush enabled", () => {
+    renderPicker(itlFlooredQuotes(true));
+    const card = itlCard();
     expect(within(card).getByText(FLOOR_RE)).toBeInTheDocument();
   });
 });
