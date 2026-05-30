@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { track, trackPageview, valueBucket, volumeBucket } from "./lib/analytics";
 import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
+import { loadLocations, type LocationIndex } from "./lib/locations";
 import {
   evaluateServices,
   parseHangarPaste,
@@ -79,6 +80,9 @@ export default function App() {
   });
   const [items, setItems] = useState<Record<string, ItemEntry> | null>(null);
   const [itemsError, setItemsError] = useState<string | null>(null);
+  // SDE-sourced location corpus (ADR 0011). null = loading or unreachable; the
+  // combo degrades gracefully to the curated presets either way.
+  const [locIndex, setLocIndex] = useState<LocationIndex | null>(null);
   const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesError, setPricesError] = useState<"rate-limited" | "server-error" | "network" | null>(null);
@@ -86,6 +90,14 @@ export default function App() {
   // load items DB on mount
   useEffect(() => {
     loadItems().then(setItems).catch((e) => setItemsError(String(e)));
+  }, []);
+
+  // load the location corpus on mount (off the first-paint path). A failure is
+  // non-fatal: the combo falls back to the curated presets.
+  useEffect(() => {
+    loadLocations()
+      .then(setLocIndex)
+      .catch((e) => captureError("loadLocations failed", e));
   }, []);
 
   // persist
@@ -171,8 +183,8 @@ export default function App() {
     ratePerM3: settings.overrideRate.enabled ? settings.overrideRate.value : undefined,
   }), [settings.overrideCollateral, settings.overrideVol, settings.overrideRate]);
   const quotes = useMemo(
-    () => evaluateServices(pricedParse, origin, dest, rushEnabled, overrides),
-    [pricedParse, origin, dest, rushEnabled, overrides],
+    () => evaluateServices(pricedParse, origin, dest, rushEnabled, overrides, locIndex?.sdeIdToSlug),
+    [pricedParse, origin, dest, rushEnabled, overrides, locIndex],
   );
   const selectedQuote =
     quotes.find((q) => q.service.id === selectedSvc) ||
@@ -281,6 +293,7 @@ export default function App() {
                 dest={dest}
                 setOrigin={setOrigin}
                 setDest={setDest}
+                locIndex={locIndex}
               />
             </Reveal>
             <Reveal

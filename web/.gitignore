@@ -6,5 +6,6 @@ dist
 *.tsbuildinfo
 src/lib/services.generated.ts
 public/items.json
+public/locations.json
 scripts/cache/*
 !scripts/cache/.gitkeep

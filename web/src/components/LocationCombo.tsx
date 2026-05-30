@@ -1,10 +1,18 @@
-// Combobox: preset dropdown for known stations, falls back to free-form
-// custom entry for systems not in the preset list. Custom entries flow
-// through as a Location object with custom: true — services will mark the
-// route ineligible until backend search is wired up.
+// Combobox: full-universe location search (ADR 0011). Synchronously filters the
+// curated alias presets + the SDE-sourced dockable corpus loaded once on mount —
+// no debounce, no network call at search time. Curated presets pin to the top
+// with friendly labels; SDE dockables rank below by system relevance. Only
+// dockables are selectable. Free-text that resolves to nothing flows through as
+// a {custom: true} Location — the neutral, retained "no catalog rate" path.
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { LOCATIONS, makeCustomLocation, type Location } from "../lib/logic";
+import {
+  searchLocations,
+  SEARCH_CAP,
+  type LocationIndex,
+  type SearchResult,
+} from "../lib/locations";
 import { Caret, Search, X } from "./icons";
 import { SecBadge } from "./SecBadge";
 
@@ -12,13 +20,16 @@ interface LocationComboProps {
   value: Location;
   onChange: (loc: Location) => void;
   label: string;
+  /** Indexed SDE corpus; null until loaded (or on fetch failure) — the combo
+   *  gracefully degrades to the curated presets. */
+  locIndex: LocationIndex | null;
 }
 
 type Item =
-  | { kind: "preset"; loc: Location }
+  | { kind: "result"; result: SearchResult }
   | { kind: "custom"; text: string };
 
-export function LocationCombo({ value, onChange, label }: LocationComboProps) {
+export function LocationCombo({ value, onChange, label, locIndex }: LocationComboProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hi, setHi] = useState(0);
@@ -40,31 +51,32 @@ export function LocationCombo({ value, onChange, label }: LocationComboProps) {
 
   const trimmed = query.trim();
   const lower = trimmed.toLowerCase();
-  const filtered = lower
-    ? LOCATIONS.filter(
-        (l) =>
-          l.short.toLowerCase().includes(lower) ||
-          l.name.toLowerCase().includes(lower) ||
-          l.id.toLowerCase().includes(lower),
-      )
-    : LOCATIONS;
+
+  const { results, truncated } = useMemo(
+    () => searchLocations(trimmed, locIndex, LOCATIONS),
+    [trimmed, locIndex],
+  );
+
+  // Offer the custom path only when the query isn't an exact match of something
+  // already selectable (preset short/name or a dockable listing string).
   const exact =
-    lower &&
-    LOCATIONS.find(
-      (l) =>
-        l.short.toLowerCase() === lower ||
-        l.id.toLowerCase() === lower ||
-        l.name.toLowerCase() === lower,
+    lower.length > 0 &&
+    results.some(
+      (r) =>
+        r.loc.short.toLowerCase() === lower ||
+        r.loc.name.toLowerCase() === lower ||
+        r.loc.id.toLowerCase() === lower,
     );
   const allowCustom = trimmed.length >= 2 && !exact;
+
   const items: Item[] = [
-    ...filtered.map((l): Item => ({ kind: "preset", loc: l })),
+    ...results.map((r): Item => ({ kind: "result", result: r })),
     ...(allowCustom ? [{ kind: "custom" as const, text: trimmed }] : []),
   ];
 
   function commit(item: Item | undefined) {
     if (!item) return;
-    if (item.kind === "preset") onChange(item.loc);
+    if (item.kind === "result") onChange(item.result.loc);
     else onChange(makeCustomLocation(item.text));
     setOpen(false);
     setQuery("");
@@ -102,6 +114,11 @@ export function LocationCombo({ value, onChange, label }: LocationComboProps) {
   useEffect(() => {
     setHi(0);
   }, [query]);
+
+  const presetCount = results.filter((r) => r.preset).length;
+  const headLabel = lower
+    ? `${results.length} match${results.length === 1 ? "" : "es"}`
+    : "Trade hubs & alliance staging";
 
   return (
     <div className="loc-select loc-combo" ref={wrapRef}>
@@ -150,38 +167,40 @@ export function LocationCombo({ value, onChange, label }: LocationComboProps) {
       )}
       {open && (
         <div className="loc-menu" ref={listRef}>
-          {filtered.length > 0 && (
-            <div className="loc-menu-h">
-              {lower
-                ? `${filtered.length} preset match${filtered.length === 1 ? "" : "es"}`
-                : "Trade hubs & alliance staging"}
+          {results.length > 0 && <div className="loc-menu-h">{headLabel}</div>}
+          {results.map((r, i) => {
+            const l = r.loc;
+            return (
+              <button
+                key={l.id}
+                className={
+                  "loc-opt " + (l.id === value.id ? "is-sel " : "") + (hi === i ? "is-hi " : "")
+                }
+                onMouseEnter={() => setHi(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => commit({ kind: "result", result: r })}
+              >
+                <div className="loc-opt-l">
+                  <SecBadge sec={l.sec} />
+                  <span className="loc-short">{l.short}</span>
+                  {r.preset && l.alliance && <span className="tag tag-alliance">alliance</span>}
+                  {r.preset && l.hub && <span className="tag tag-hub">trade hub</span>}
+                </div>
+                <span className="loc-full">{l.name}</span>
+              </button>
+            );
+          })}
+          {truncated && (
+            <div className="loc-empty">
+              Showing the first {SEARCH_CAP} — keep typing to narrow.
             </div>
           )}
-          {filtered.map((l, i) => (
-            <button
-              key={l.id}
-              className={
-                "loc-opt " + (l.id === value.id ? "is-sel " : "") + (hi === i ? "is-hi " : "")
-              }
-              onMouseEnter={() => setHi(i)}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => commit({ kind: "preset", loc: l })}
-            >
-              <div className="loc-opt-l">
-                <SecBadge sec={l.sec} />
-                <span className="loc-short">{l.short}</span>
-                {l.alliance && <span className="tag tag-alliance">alliance</span>}
-                {l.hub && <span className="tag tag-hub">trade hub</span>}
-              </div>
-              <span className="loc-full">{l.name}</span>
-            </button>
-          ))}
           {allowCustom && (
             <button
               className={
-                "loc-opt loc-opt-custom " + (hi === filtered.length ? "is-hi " : "")
+                "loc-opt loc-opt-custom " + (hi === results.length ? "is-hi " : "")
               }
-              onMouseEnter={() => setHi(filtered.length)}
+              onMouseEnter={() => setHi(results.length)}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => commit({ kind: "custom", text: trimmed })}
             >
@@ -190,13 +209,18 @@ export function LocationCombo({ value, onChange, label }: LocationComboProps) {
                 <span className="loc-short mono">{trimmed}</span>
               </div>
               <span className="loc-full dim">
-                No preset rate — services will mark route ineligible
+                No catalog rate for this route — set a manual rate to price it
               </span>
             </button>
           )}
-          {filtered.length === 0 && !allowCustom && (
+          {results.length === 0 && !allowCustom && (
             <div className="loc-empty">
               Keep typing — at least 2 characters to use as custom.
+            </div>
+          )}
+          {lower && presetCount > 0 && results.length > presetCount && (
+            <div className="loc-foot-note dim">
+              Curated rates pinned first; the rest are full-universe dockables.
             </div>
           )}
           <div className="loc-foot">
