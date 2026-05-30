@@ -175,7 +175,9 @@ export default function App() {
     [pricedParse, origin, dest, rushEnabled, overrides],
   );
   const selectedQuote =
-    quotes.find((q) => q.service.id === selectedSvc) || quotes.find((q) => q.eligible);
+    quotes.find((q) => q.service.id === selectedSvc) ||
+    quotes.find((q) => q.status === "eligible") ||
+    quotes.find((q) => q.status === "splittable");
 
   // auto-select first eligible
   useEffect(() => {

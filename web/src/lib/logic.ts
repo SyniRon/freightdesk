@@ -41,10 +41,29 @@ export interface Location {
   custom?: boolean;
 }
 
+// Tri-state eligibility (ADR 0010):
+//   eligible    — a route matches and the load fits within the caps.
+//   splittable  — a route matches but the aggregate load exceeds maxVol and/or
+//                 maxCollateral, yet every individual unit fits. The shipper
+//                 will take it as N contracts; we surface an advisory.
+//   ineligible  — no route matches, OR a single indivisible unit can never fit
+//                 (its own volume exceeds maxVol, or its own collateral exceeds
+//                 maxCollateral). reasons[] carries the human-readable cause.
+export type QuoteStatus = "eligible" | "splittable" | "ineligible";
+
+// Over-cap split advisory. Present only on a `splittable` quote. Even-split per
+// ADR 0010: every sub-contract is identical, so allInCost = N × per-contract.
+export interface SplitAdvisory {
+  n: number;                    // contract count, ≥ 2
+  allInCost: number;           // honest total to ship the whole load across N contracts (rush-aware, minReward-floored per contract)
+  perContractVol: number;      // approximate per-contract volume target (vol / N)
+  perContractCollateral: number; // approximate per-contract collateral target (collateral / N)
+}
+
 export interface Quote {
   service: Service;
   route: ServiceRoute | undefined;
-  eligible: boolean;
+  status: QuoteStatus;
   reasons: string[];
   reward: number;
   collateral: number;
@@ -52,6 +71,7 @@ export interface Quote {
   rushFee: number;
   rushApplied: boolean;
   overridden: { collateral: boolean; vol: boolean; rate: boolean };
+  split?: SplitAdvisory;
   breakdown: {
     formula: RouteFormula | undefined;
     formulaResult: number;
@@ -64,9 +84,12 @@ export interface Quote {
 // a present, finite, positive value wins over the market-derived value. Set by
 // the settings drawer, applied in evaluateServices. See issue #15.
 export interface QuoteOverrides {
-  collateral?: number; // contract collateral, ISK
-  vol?: number;        // packaged volume, m³
-  ratePerM3?: number;  // per-m³ shipping rate, ISK
+  collateral?: number;    // contract collateral, ISK
+  vol?: number;           // packaged volume, m³
+  ratePerM3?: number;     // per-m³ shipping rate, ISK
+  maxCollateral?: number; // collateral cap override, ISK — lets the settings drawer
+                          // (and tests) exercise a hard collateral cap on services
+                          // that don't publish one. Falls through to route/service cap.
 }
 
 const isOverride = (n: number | undefined): n is number =>
@@ -224,6 +247,37 @@ export function daysSince(iso: string): number {
   return Math.floor(d);
 }
 
+// Compute the over-cap split advisory for a load that exceeds a cap but can be
+// partitioned to fit. Even division (ADR 0010): N contracts each carrying
+// vol/N and collateral/N. The all-in cost is the honest total — per-contract
+// reward (formula, minReward-floored, plus rush when on) × N. For the `max`
+// formula an even split is the cost-optimal balance, and total = N × per-leg.
+function computeSplit(
+  route: ServiceRoute,
+  vol: number,
+  collateral: number,
+  maxVol: number | undefined,
+  maxCollateral: number | undefined,
+  minReward: number,
+  rushAdded: number,
+  rateOverride: number | undefined,
+): SplitAdvisory {
+  const volDiv = maxVol != null && maxVol > 0 ? Math.ceil(vol / maxVol) : 1;
+  const collDiv = maxCollateral != null && maxCollateral > 0 ? Math.ceil(collateral / maxCollateral) : 1;
+  const n = Math.max(2, volDiv, collDiv);
+  const perVol = vol / n;
+  const perColl = collateral / n;
+  // Each sub-contract is priced independently: formula → minReward floor → rush.
+  const perContractReward =
+    Math.max(minReward, applyFormula(route.formula, perVol, perColl, rateOverride)) + rushAdded;
+  return {
+    n,
+    allInCost: perContractReward * n,
+    perContractVol: perVol,
+    perContractCollateral: perColl,
+  };
+}
+
 export function evaluateServices(
   parse: ParseResult,
   origin: Location,
@@ -243,25 +297,14 @@ export function evaluateServices(
     const collateral = collOver ? overrides.collateral! : Math.max(parse.collateral ?? parse.totalValue, 0);
     const reasons: string[] = [];
 
-    if (!route) {
-      reasons.push(
-        origin?.custom || dest?.custom
-          ? "Doesn't service custom destinations"
-          : "Doesn't service this route",
-      );
-    }
-
-    // Route-level overrides win, falling through to service-level.
+    // Route-level overrides win, falling through to service-level. A
+    // maxCollateral override (issue #15-adjacent) lets the settings drawer
+    // impose a cap on services that publish none.
     const minReward     = route?.minReward    ?? s.minReward    ?? 0;
     const maxVol        = route?.maxVol       ?? s.maxVol;
-    const maxCollateral = route?.maxCollateral ?? s.maxCollateral;
-
-    if (maxVol != null && vol > maxVol) {
-      reasons.push(`Volume ${fmtVol(vol)} exceeds ${fmtVol(maxVol)} cap — split into multiple contracts`);
-    }
-    if (maxCollateral != null && collateral > maxCollateral) {
-      reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(maxCollateral)} cap — split into multiple contracts`);
-    }
+    const maxCollateral = isOverride(overrides.maxCollateral)
+      ? overrides.maxCollateral
+      : (route?.maxCollateral ?? s.maxCollateral);
 
     const formulaResult = route ? applyFormula(route.formula, vol, collateral, overrides.ratePerM3) : 0;
     const rushFee = route?.rushFee ?? 0;
@@ -272,19 +315,62 @@ export function evaluateServices(
     // A rate override only actually moves the reward for rate-bearing formulas;
     // flag it overridden only when the active route can consume it.
     const rateConsumed = rateOver && !!route && route.formula.kind !== "flat";
+    const overridden = { collateral: collOver, vol: volOver, rate: rateConsumed };
+
+    // ─── Tri-state classification (ADR 0010) ───────────────────────────────
+    // No route → ineligible.
+    if (!route) {
+      reasons.push(
+        origin?.custom || dest?.custom
+          ? "Doesn't service custom destinations"
+          : "Doesn't service this route",
+      );
+      return {
+        service: s, route, status: "ineligible", reasons, reward, collateral, vol,
+        rushFee, rushApplied, overridden,
+        breakdown: { formula: undefined, formulaResult, minReward, rushAdded },
+      };
+    }
+
+    const overVol = maxVol != null && vol > maxVol;
+    const overColl = maxCollateral != null && collateral > maxCollateral;
+
+    if (overVol || overColl) {
+      // Over a cap. Splittable iff every individual unit still fits — otherwise
+      // there's an indivisible piece no partition can place, so ineligible.
+      // Per-unit contract collateral scales the unit's market value by the same
+      // collateral/value ratio the whole load uses.
+      const collScale = parse.totalValue > 0 ? collateral / parse.totalValue : 0;
+      const uncuttableVol =
+        maxVol != null && parse.matched.some((m) => m.vol > maxVol);
+      const uncuttableColl =
+        maxCollateral != null &&
+        parse.matched.some((m) => m.price * collScale > maxCollateral);
+
+      if (uncuttableVol || uncuttableColl) {
+        if (uncuttableVol) reasons.push(`A single item is too large to fit ${fmtVol(maxVol!)} cap`);
+        if (uncuttableColl) reasons.push(`A single item is too valuable to fit ${fmtISK(maxCollateral!)} collateral cap`);
+        return {
+          service: s, route, status: "ineligible", reasons, reward, collateral, vol,
+          rushFee, rushApplied, overridden,
+          breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
+        };
+      }
+
+      const split = computeSplit(
+        route, vol, collateral, maxVol, maxCollateral, minReward, rushAdded, overrides.ratePerM3,
+      );
+      return {
+        service: s, route, status: "splittable", reasons, reward, collateral, vol,
+        rushFee, rushApplied, overridden, split,
+        breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
+      };
+    }
 
     return {
-      service: s,
-      route,
-      eligible: reasons.length === 0,
-      reasons,
-      reward,
-      collateral,
-      vol,
-      rushFee,
-      rushApplied,
-      overridden: { collateral: collOver, vol: volOver, rate: rateConsumed },
-      breakdown: { formula: route?.formula, formulaResult, minReward, rushAdded },
+      service: s, route, status: "eligible", reasons, reward, collateral, vol,
+      rushFee, rushApplied, overridden,
+      breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
     };
   });
 }

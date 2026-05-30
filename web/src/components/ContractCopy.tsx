@@ -61,7 +61,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
   const [toast, copy] = useClipboard();
   const trackedCopy = (value: string, label: string) => {
     copy(value, label);
-    if (quote && quote.eligible) {
+    if (quote && quote.status === "eligible") {
       track("copy", {
         field: label.toLowerCase(),
         service: quote.service.id,
@@ -70,17 +70,26 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
       });
     }
   };
-  if (!quote || !quote.eligible) {
+  if (!quote || quote.status !== "eligible") {
+    // Splittable has no copy block — EVE has no paste target for a per-contract
+    // manifest, so the over-cap card carries the advisory and this stays empty.
+    const splittable = quote?.status === "splittable";
     return (
       <section className="block copy-block is-empty">
         <header className="block-h">
           <div className="block-step">05</div>
           <div className="block-title">
             <h2>Contract values</h2>
-            <p>Select an eligible service to reveal the copy strings.</p>
+            <p>
+              {splittable
+                ? "Over-cap shipment — see the split advisory on the service card. No copy strings: each contract's items are chosen in-game."
+                : "Select an eligible service to reveal the copy strings."}
+            </p>
           </div>
         </header>
-        <div className="copy-placeholder">awaiting service selection</div>
+        <div className="copy-placeholder">
+          {splittable ? "split into multiple contracts" : "awaiting service selection"}
+        </div>
       </section>
     );
   }

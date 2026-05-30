@@ -85,15 +85,15 @@ describe("evaluateServices", () => {
     const amarr = LOCATIONS.find((l) => l.id === "amarr")!;
     const parse = { matched: [], unmatched: [], totalVol: 1000, totalValue: 100_000_000 };
     const quotes = evaluateServices(parse, amarr, dest);
-    expect(quotes[0].eligible).toBe(false);
+    expect(quotes[0].status).toBe("ineligible");
     expect(quotes[0].reasons[0]).toMatch(/route/i);
   });
 
-  it("marks ineligible when volume exceeds cap", () => {
+  it("marks splittable when volume exceeds cap (route matches, units fit)", () => {
     const parse = { matched: [], unmatched: [], totalVol: 999_999_999, totalValue: 0 };
     const quotes = evaluateServices(parse, origin, dest);
-    expect(quotes[0].eligible).toBe(false);
-    expect(quotes[0].reasons.some((r) => r.includes("Volume"))).toBe(true);
+    expect(quotes[0].status).toBe("splittable");
+    expect(quotes[0].split).toBeDefined();
   });
 
   it("applies minReward floor", () => {
@@ -106,7 +106,7 @@ describe("evaluateServices", () => {
     const custom = makeCustomLocation("XX-XYZ");
     const parse = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
     const quotes = evaluateServices(parse, origin, custom);
-    expect(quotes.every((q) => !q.eligible)).toBe(true);
+    expect(quotes.every((q) => q.status === "ineligible")).toBe(true);
   });
 });
 
@@ -188,7 +188,7 @@ describe("evaluateServices with per-route formulas", () => {
   it("applies max formula on C-J6MT → Jita", () => {
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
     const [q] = evaluateServices(parse, cj6mt, jita);
-    expect(q.eligible).toBe(true);
+    expect(q.status).toBe("eligible");
     expect(q.reward).toBe(Math.max(10_000 * 900, 500_000_000 * 0.005));
   });
 
@@ -213,11 +213,117 @@ describe("evaluateServices with per-route formulas", () => {
     expect(off.rushApplied).toBe(false);
   });
 
-  it("flags cap exceeded with split-contracts copy", () => {
+  it("classifies an over-volume-cap load as splittable, not ineligible", () => {
+    // ADFU maxVol = 350_000. 999_999 m³ → ceil(999999/350000) = 3 contracts.
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 999_999, totalValue: 0 };
     const [q] = evaluateServices(parse, cj6mt, jita);
-    expect(q.eligible).toBe(false);
-    expect(q.reasons[0]).toMatch(/split into multiple contracts/i);
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(3);
+  });
+});
+
+describe("evaluateServices over-cap splitting (ADR 0010)", () => {
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+  const adfu = () => SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
+
+  it("N is ceil(vol/maxVol) when only the volume cap binds", () => {
+    // maxVol 350_000; 700_001 → ceil = 3.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 700_001, totalValue: 0 };
+    const [q] = evaluateServices(parse, cj6mt, jita);
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(3);
+    expect(q.split!.perContractVol).toBeCloseTo(700_001 / 3, 4);
+  });
+
+  it("N is the larger of the volume- and collateral-cap divisions when both bind", () => {
+    // Force a collateral cap via override so both caps are exercised together.
+    // maxVol 350_000 → vol leg needs ceil(800_000/350_000)=3.
+    // collateral cap 1_000_000_000 (override-injected) → ceil(5B/1B)=5. N=5.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 800_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, cj6mt, jita, false, {
+      collateral: 5_000_000_000,
+      maxCollateral: 1_000_000_000,
+    });
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(5);
+  });
+
+  it("all-in cost = N × per-contract reward (rush off): even-split max formula equals single-contract reward", () => {
+    // C-J6MT→Jita max(vol×900, coll×0.5%). vol 700_000 (N=2), coll small so vol leg wins.
+    // Per contract: max(350_000×900, .) = 315_000_000, ×2 = 630_000_000.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 700_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, cj6mt, jita, false);
+    expect(q.split!.n).toBe(2);
+    expect(q.split!.allInCost).toBe(2 * Math.max(350_000 * 900, 0));
+  });
+
+  it("all-in cost is rush-aware: adds rushFee ×N when rush toggle on", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 700_000, totalValue: 0 };
+    const [off] = evaluateServices(parse, cj6mt, jita, false);
+    const [on] = evaluateServices(parse, cj6mt, jita, true);
+    // rushFee 250M per contract, N=2 → +500M.
+    expect(on.split!.allInCost - off.split!.allInCost).toBe(2 * 250_000_000);
+  });
+
+  it("all-in cost floors each sub-contract at minReward independently before ×N", () => {
+    // Force the floor to bind on every sub-contract via a tiny rate override:
+    // Jita→C-J6MT rate-only. With ratePerM3 = 0.000001, per-contract reward ≈ 0,
+    // so each of the N contracts floors to minReward (5M). N from volume cap.
+    // vol 400_000 → N=2 (ceil(400000/350000)). allIn = 2 × 5M = 10M.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 400_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, jita, cj6mt, false, { ratePerM3: 0.000001 });
+    expect(q.split!.n).toBe(2);
+    expect(q.split!.allInCost).toBe(2 * adfu().minReward!);
+  });
+
+  it("ineligible (not splittable) when a single indivisible unit exceeds the volume cap", () => {
+    // One Drake at 400_000 m³ — its own volume exceeds maxVol 350_000. Uncuttable.
+    const parse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 1, vol: 400_000, price: 0, id: 1 }],
+      unmatched: [],
+      totalVol: 400_000,
+      totalValue: 0,
+    };
+    const [q] = evaluateServices(parse, cj6mt, jita);
+    expect(q.status).toBe("ineligible");
+    expect(q.reasons.some((r) => /too large to fit/i.test(r))).toBe(true);
+  });
+
+  it("splittable when many small units aggregate over the cap (each unit fits)", () => {
+    // 100 units × 5000 m³ = 500_000 m³ over 350_000 cap, but each unit is 5000 m³.
+    const parse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 100, vol: 5000, price: 0, id: 1 }],
+      unmatched: [],
+      totalVol: 500_000,
+      totalValue: 0,
+    };
+    const [q] = evaluateServices(parse, cj6mt, jita);
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(2);
+  });
+
+  it("ineligible when a single indivisible unit exceeds the collateral cap", () => {
+    // One unit whose own contract-collateral exceeds maxCollateral (override cap).
+    const parse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 1, vol: 10, price: 2_000_000_000, id: 1 }],
+      unmatched: [],
+      totalVol: 10,
+      totalValue: 2_000_000_000,
+      collateral: 2_000_000_000,
+    };
+    const [q] = evaluateServices(parse, cj6mt, jita, false, { maxCollateral: 1_000_000_000 });
+    expect(q.status).toBe("ineligible");
+    expect(q.reasons.some((r) => /too valuable to fit/i.test(r))).toBe(true);
+  });
+
+  it("split composes with a volume override (override drives N, not raw paste)", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10, totalValue: 0 };
+    const [q] = evaluateServices(parse, cj6mt, jita, false, { vol: 1_050_000 });
+    // 1_050_000 / 350_000 = exactly 3.
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(3);
+    expect(q.split!.perContractVol).toBeCloseTo(350_000, 4);
   });
 });
 
@@ -271,10 +377,10 @@ describe("evaluateServices with direct overrides", () => {
     expect(q.reward).toBe(Math.max(5_000 * 800, 2_000_000_000 * 0.005));
   });
 
-  it("volume override is checked against the volume cap", () => {
+  it("volume override over the cap yields splittable, not ineligible", () => {
     const [q] = evaluateServices(base, cj6mt, jita, false, { vol: 999_999 });
-    expect(q.eligible).toBe(false);
-    expect(q.reasons.some((r) => r.includes("Volume"))).toBe(true);
+    expect(q.status).toBe("splittable");
+    expect(q.split!.n).toBe(3); // ceil(999999/350000)
   });
 
   it("ignores override values that are not finite positive numbers", () => {
