@@ -42,7 +42,7 @@ export function AboutFooter({ open, onToggle }: AboutFooterProps) {
             <span className="sep">·</span>
             <a
               className="link-arrow"
-              href="https://github.com/SyniRon/freightdesk/tree/main/web/services"
+              href="https://github.com/SyniRon/freightdesk/blob/main/CONTRIBUTING.md"
               target="_blank"
               rel="noopener noreferrer"
             >
