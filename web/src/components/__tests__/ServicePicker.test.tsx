@@ -87,3 +87,40 @@ describe("ServicePicker override annotations", () => {
     expect(collCell.querySelector(".svc-struck")).toBeNull();
   });
 });
+
+describe("ServicePicker min-reward floor advisory", () => {
+  const FLOOR_RE = /minimum reward applies/i;
+
+  // A load whose formula result falls below the shipper's 5M minimum: tiny
+  // volume (1,000 m³ × 900 = 900k) and modest collateral (100M × 0.5% = 500k),
+  // so max(900k, 500k) = 900k < 5M → the floor applies.
+  function flooredQuotes(rushEnabled = false): Quote[] {
+    return evaluateServices(base, cj6mt, jita, rushEnabled, {
+      vol: 1_000,
+      collateral: 100_000_000,
+    });
+  }
+
+  it("shows the floor advisory when the formula result is below the minimum", () => {
+    renderPicker(flooredQuotes());
+    const card = firstCard();
+    const note = within(card).getByText(FLOOR_RE);
+    // Same component/styling as the value-vs-volume note.
+    expect(note.closest(".svc-coll-note")).not.toBeNull();
+    // And carries the Warn icon, like the sibling advisory.
+    expect(note.closest(".svc-coll-note")!.querySelector("svg")).not.toBeNull();
+  });
+
+  it("shows no floor advisory when the formula result meets/exceeds the minimum", () => {
+    // The default base load (10,000 m³ × 900 = 9M) clears the 5M minimum.
+    renderPicker(quotesFor());
+    const card = firstCard();
+    expect(within(card).queryByText(FLOOR_RE)).toBeNull();
+  });
+
+  it("still shows the floor advisory with rush enabled on a base-floored load", () => {
+    renderPicker(flooredQuotes(true));
+    const card = firstCard();
+    expect(within(card).getByText(FLOOR_RE)).toBeInTheDocument();
+  });
+});
