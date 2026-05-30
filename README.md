@@ -28,25 +28,13 @@ pnpm test:e2e      # playwright against the prod build
 
 ## Adding a service
 
-Drop a YAML file in `web/services/`. Example:
+Shipping services are one YAML file per service under `web/services/`. Drop a
+file in, run `pnpm build:services` (which validates it and regenerates
+`src/lib/services.generated.ts`), and open a PR.
 
-```yaml
-id: my-shipper
-name: My Shipping Service
-tagline: short tagline
-minReward: 5000000
-maxVol: 350000
-routes:
-  - origin: cj6mt
-    destination: jita44
-    formula:
-      kind: max          # sum | max | rate-only | flat
-      ratePerM3: 900
-      collateralPct: 0.005
-    rushFee: 250000000   # optional
-```
-
-Then `pnpm build:services` regenerates `src/lib/services.generated.ts`.
+See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full schema, all four
+formula kinds with examples, the service-level fields, and the local-test
+workflow.
 
 ## Deploy
 
@@ -83,8 +71,9 @@ copy clicked with field name).
 
 ## Contributing
 
-Rate cards and routes live in `web/services/*.yaml`. PRs welcome. The `updated` field
-is auto-derived from `git log` at build time.
+Rate cards and routes live in `web/services/*.yaml`. PRs welcome — see
+**[CONTRIBUTING.md](./CONTRIBUTING.md)** for how to add or update a service. The
+`updated` field is auto-derived from `git log` at build time.
 
 ## License
 
