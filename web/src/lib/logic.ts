@@ -160,6 +160,25 @@ export const fmtVol = (n: number | null | undefined): string =>
 export const fmtInt = (n: number | null | undefined): string =>
   n == null || isNaN(n) ? "—" : Math.round(n).toLocaleString();
 
+// Inverse of the display formatters above: parse EVE shorthand / separator-laden
+// input back into a number. Accepts `k`/`m`/`b` suffixes (case-insensitive,
+// ×1e3/1e6/1e9), strips comma + whitespace thousands separators, and supports a
+// decimal mantissa before the suffix (`1.5b` → 1.5e9). Commas are thousands
+// separators only — `2,5` → 25, never 2.5. Returns the positive number, or
+// `null` for unparseable / non-positive input (treated by callers as empty /
+// cleared, never a wrong number). Used by the Settings drawer override inputs.
+export function parseShorthand(raw: string): number | null {
+  const cleaned = raw.replace(/[,\s]/g, "").toLowerCase();
+  if (!cleaned) return null;
+  const m = /^(\d*\.?\d+)([kmb]?)$/.exec(cleaned);
+  if (!m) return null;
+  const mantissa = parseFloat(m[1]);
+  if (!isFinite(mantissa)) return null;
+  const mult = m[2] === "b" ? 1e9 : m[2] === "m" ? 1e6 : m[2] === "k" ? 1e3 : 1;
+  const n = mantissa * mult;
+  return n > 0 ? n : null;
+}
+
 // ─── Paste parser ───────────────────────────────────────────────────────────
 export function parseHangarPaste(raw: string, db: Record<string, ItemEntry>): ParseResult {
   const matched: MatchedLine[] = [];
