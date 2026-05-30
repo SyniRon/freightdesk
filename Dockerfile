@@ -1,5 +1,5 @@
 # ---- frontend build ----
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 ENV CI=true
 RUN corepack enable
 WORKDIR /app/web
