@@ -3,15 +3,26 @@ import { fmtISKFull, type Location, type Quote } from "../lib/logic";
 import { track } from "../lib/analytics";
 import { Check, Copy, Warn } from "./icons";
 
+// Inline marker for a value sourced from a user override rather than market
+// data — so the user remembers they're off market (issue #15).
+function OverrideBadge() {
+  return (
+    <span className="override-badge" title="This value comes from a manual override in Settings, not market data.">
+      override active
+    </span>
+  );
+}
+
 interface CopyRowProps {
   label: string;
   value: string;
   hint?: string;
+  overridden?: boolean;
   copy: (value: string, label: string) => void;
   toast: ToastState | null;
 }
 
-function CopyRow({ label, value, hint, copy, toast }: CopyRowProps) {
+function CopyRow({ label, value, hint, overridden, copy, toast }: CopyRowProps) {
   const just = toast && toast.value === value;
   return (
     <button
@@ -20,7 +31,7 @@ function CopyRow({ label, value, hint, copy, toast }: CopyRowProps) {
       onClick={() => copy(value, label)}
     >
       <div className="copy-l">
-        <div className="copy-k">{label}</div>
+        <div className="copy-k">{label}{overridden && <OverrideBadge />}</div>
         <div className="copy-v mono">{value}</div>
         {hint && <div className="copy-hint">{hint}</div>}
       </div>
@@ -132,6 +143,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
           label="Reward"
           value={String(rew)}
           hint="ISK · paste into Reward field"
+          overridden={quote.overridden.rate}
           copy={trackedCopy}
           toast={toast}
         />
@@ -139,6 +151,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
           label="Collateral"
           value={String(coll)}
           hint="ISK · paste into Collateral field"
+          overridden={quote.overridden.collateral}
           copy={trackedCopy}
           toast={toast}
         />
@@ -169,6 +182,7 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
       <div className="copy-foot">
         <div>
           <span className="dim">Volume</span> <span className="mono">{vol} m³</span>
+          {quote.overridden.vol && <OverrideBadge />}
         </div>
       </div>
 

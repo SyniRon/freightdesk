@@ -960,6 +960,27 @@ button { font-family: inherit; }
   width: 100%;
 }
 .text-input:focus { border-color: var(--accent); }
+.text-input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Direct-override controls (issue #15) */
+.setting-group-h {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 4px; border-bottom: 1px solid var(--bd-2);
+}
+.setting-toggle {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.setting-toggle input { accent-color: var(--accent); cursor: pointer; }
+
+/* "override active" marker on a contract value sourced from a manual override */
+.override-badge {
+  display: inline-block; margin-left: 8px;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--accent-on); background: var(--accent);
+  vertical-align: middle;
+}
 
 /* ── Reveal: enter/exit animation primitive ───────────────────────────────── */
 .reveal {

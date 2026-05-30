@@ -6,6 +6,48 @@ export interface AppSettings {
   collateralPct: number;        // was: collOverride: string
   defaultOrigin: string;
   defaultDest: string;
+  // Direct overrides (issue #15) — each independently toggleable. When enabled
+  // with a value, wins over the market-derived value in the calculation.
+  overrideCollateral: { enabled: boolean; value: number };
+  overrideVol: { enabled: boolean; value: number };
+  overrideRate: { enabled: boolean; value: number };
+}
+
+interface OverrideRowProps {
+  title: string;
+  desc: string;
+  unit: string;
+  state: { enabled: boolean; value: number };
+  onChange: (s: { enabled: boolean; value: number }) => void;
+}
+
+function OverrideRow({ title, desc, unit, state, onChange }: OverrideRowProps) {
+  return (
+    <div className="setting">
+      <label className="setting-toggle">
+        <input
+          type="checkbox"
+          checked={state.enabled}
+          onChange={(e) => onChange({ ...state, enabled: e.target.checked })}
+        />
+        <span className="setting-k">{title}</span>
+      </label>
+      <div className="setting-d">{desc}</div>
+      <input
+        className="text-input mono"
+        type="number"
+        min="0"
+        step="any"
+        disabled={!state.enabled}
+        placeholder={unit}
+        value={Number.isFinite(state.value) && state.value > 0 ? state.value : ""}
+        onChange={(e) => {
+          const n = parseFloat(e.target.value);
+          onChange({ ...state, value: isNaN(n) || n < 0 ? 0 : n });
+        }}
+      />
+    </div>
+  );
 }
 
 interface SettingsDrawerProps {
@@ -64,6 +106,29 @@ export function SettingsDrawer({ open, onClose, settings, setSettings }: Setting
               }}
             />
           </div>
+          <div className="setting-group-h">Direct overrides</div>
+          <OverrideRow
+            title="Override collateral (ISK)"
+            desc="Hard-set the contract collateral. Wins over both the collateral % and the Jita-derived value — use for non-market items or when you price the cargo better than Fuzzwork."
+            unit="ISK"
+            state={settings.overrideCollateral}
+            onChange={(s) => setSettings({ ...settings, overrideCollateral: s })}
+          />
+          <OverrideRow
+            title="Override volume (m³)"
+            desc="Hard-set total packaged volume — for cargo not yet in the items database, where the parser undercounts."
+            unit="m³"
+            state={settings.overrideVol}
+            onChange={(s) => setSettings({ ...settings, overrideVol: s })}
+          />
+          <OverrideRow
+            title="Override per-m³ rate (ISK)"
+            desc="Hard-set the per-m³ shipping rate — for a custom side-deal rate negotiated with the shipper. Applies to the rate leg of the active route's formula."
+            unit="ISK/m³"
+            state={settings.overrideRate}
+            onChange={(s) => setSettings({ ...settings, overrideRate: s })}
+          />
+
           <div className="setting">
             <div className="setting-k">Default route</div>
             <div className="setting-d">Loaded next time you open the page.</div>

@@ -34,7 +34,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   collateralPct: 120,
   defaultOrigin: "jita44",
   defaultDest: "cj6mt",
+  overrideCollateral: { enabled: false, value: 0 },
+  overrideVol: { enabled: false, value: 0 },
+  overrideRate: { enabled: false, value: 0 },
 };
+
+// Hydrate a persisted override toggle, tolerating the pre-#15 shape (absent).
+function hydrateOverride(raw: any): { enabled: boolean; value: number } {
+  const value = typeof raw?.value === "number" && isFinite(raw.value) && raw.value > 0 ? raw.value : 0;
+  return { enabled: !!raw?.enabled && value > 0, value };
+}
 
 const ACCENT = "#e89149";
 
@@ -63,6 +72,9 @@ export default function App() {
       collateralPct: typeof raw?.collateralPct === "number" && raw.collateralPct > 0 ? raw.collateralPct : DEFAULT_SETTINGS.collateralPct,
       defaultOrigin: raw?.defaultOrigin ?? DEFAULT_SETTINGS.defaultOrigin,
       defaultDest: raw?.defaultDest ?? DEFAULT_SETTINGS.defaultDest,
+      overrideCollateral: hydrateOverride(raw?.overrideCollateral),
+      overrideVol: hydrateOverride(raw?.overrideVol),
+      overrideRate: hydrateOverride(raw?.overrideRate),
     };
   });
   const [items, setItems] = useState<Record<string, ItemEntry> | null>(null);
@@ -153,9 +165,14 @@ export default function App() {
     () => recomputeWithPrices(parse, pricesByTypeId, settings.collateralPct),
     [parse, pricesByTypeId, settings.collateralPct],
   );
+  const overrides = useMemo(() => ({
+    collateral: settings.overrideCollateral.enabled ? settings.overrideCollateral.value : undefined,
+    vol: settings.overrideVol.enabled ? settings.overrideVol.value : undefined,
+    ratePerM3: settings.overrideRate.enabled ? settings.overrideRate.value : undefined,
+  }), [settings.overrideCollateral, settings.overrideVol, settings.overrideRate]);
   const quotes = useMemo(
-    () => evaluateServices(pricedParse, origin, dest, rushEnabled),
-    [pricedParse, origin, dest, rushEnabled],
+    () => evaluateServices(pricedParse, origin, dest, rushEnabled, overrides),
+    [pricedParse, origin, dest, rushEnabled, overrides],
   );
   const selectedQuote =
     quotes.find((q) => q.service.id === selectedSvc) || quotes.find((q) => q.eligible);

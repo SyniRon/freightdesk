@@ -221,6 +221,70 @@ describe("evaluateServices with per-route formulas", () => {
   });
 });
 
+describe("evaluateServices with direct overrides", () => {
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+  const base: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000, collateral: 600_000_000 };
+
+  it("with no overrides, reports nothing overridden and uses market-derived values", () => {
+    const [q] = evaluateServices(base, cj6mt, jita);
+    expect(q.overridden).toEqual({ collateral: false, vol: false, rate: false });
+    expect(q.collateral).toBe(600_000_000);
+    expect(q.vol).toBe(10_000);
+    expect(q.reward).toBe(Math.max(10_000 * 900, 600_000_000 * 0.005));
+  });
+
+  it("collateral-ISK override replaces the computed collateral and the reward leg that uses it", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, { collateral: 100_000_000_000 });
+    expect(q.overridden.collateral).toBe(true);
+    expect(q.collateral).toBe(100_000_000_000);
+    // max(10_000*900, 100B*0.005) = max(9M, 500M) = 500M
+    expect(q.reward).toBe(Math.max(10_000 * 900, 100_000_000_000 * 0.005));
+  });
+
+  it("volume override replaces the computed volume and the reward leg that uses it", () => {
+    const [q] = evaluateServices(base, jita, cj6mt, false, { vol: 50_000 });
+    expect(q.overridden.vol).toBe(true);
+    expect(q.vol).toBe(50_000);
+    // Jita → C-J6MT is rate-only @700
+    expect(q.reward).toBe(50_000 * 700);
+  });
+
+  it("rate override replaces the per-m³ rate in a rate-only formula", () => {
+    const [q] = evaluateServices(base, jita, cj6mt, false, { ratePerM3: 1_000 });
+    expect(q.overridden.rate).toBe(true);
+    expect(q.reward).toBe(10_000 * 1_000);
+  });
+
+  it("rate override replaces the per-m³ rate in a max formula's rate leg", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, { ratePerM3: 100_000 });
+    expect(q.overridden.rate).toBe(true);
+    // max(10_000*100_000, 600M*0.005) = max(1B, 3M) = 1B
+    expect(q.reward).toBe(Math.max(10_000 * 100_000, 600_000_000 * 0.005));
+  });
+
+  it("all three overrides compose", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, { collateral: 2_000_000_000, vol: 5_000, ratePerM3: 800 });
+    expect(q.overridden).toEqual({ collateral: true, vol: true, rate: true });
+    expect(q.collateral).toBe(2_000_000_000);
+    expect(q.vol).toBe(5_000);
+    expect(q.reward).toBe(Math.max(5_000 * 800, 2_000_000_000 * 0.005));
+  });
+
+  it("volume override is checked against the volume cap", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, { vol: 999_999 });
+    expect(q.eligible).toBe(false);
+    expect(q.reasons.some((r) => r.includes("Volume"))).toBe(true);
+  });
+
+  it("ignores override values that are not finite positive numbers", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, { collateral: NaN, vol: -5, ratePerM3: 0 });
+    expect(q.overridden).toEqual({ collateral: false, vol: false, rate: false });
+    expect(q.collateral).toBe(600_000_000);
+    expect(q.vol).toBe(10_000);
+  });
+});
+
 describe("service contract metadata", () => {
   it("ADFU service exposes contract expiration / days-to-complete / description hint", () => {
     const adfu = SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
