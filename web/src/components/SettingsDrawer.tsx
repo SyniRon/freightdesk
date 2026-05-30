@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LOCATIONS, parseShorthand } from "../lib/logic";
+import { LOCATIONS, parseShorthand, fmtInt } from "../lib/logic";
 import { Arrow } from "./icons";
 
 // Canonical valid range for the collateral-% field — single source of truth.
@@ -39,9 +39,14 @@ function OverrideRow({ title, desc, unit, state, onChange }: OverrideRowProps) {
   // stale or wrong number. The field is a text input with inputMode="numeric"
   // so mobile gets a numeric keypad while still accepting suffix/comma chars.
   const [draft, setDraft] = useState<string | null>(null);
+  // While editing (draft non-null) show the raw keystrokes. Otherwise show the
+  // committed value comma-grouped via the shared fmtInt formatter (#37 polish):
+  // exact AND readable (`2000000000` → `2,000,000,000`). A cleared/zero value
+  // renders empty, never `0`/`—` — parseShorthand strips the commas on re-edit,
+  // so the displayed comma string round-trips back to the same number.
   const shown =
     draft ??
-    (Number.isFinite(state.value) && state.value > 0 ? String(state.value) : "");
+    (Number.isFinite(state.value) && state.value > 0 ? fmtInt(state.value) : "");
 
   const commit = () => {
     if (draft === null) return;

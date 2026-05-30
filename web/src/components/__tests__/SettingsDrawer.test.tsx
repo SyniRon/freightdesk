@@ -123,7 +123,45 @@ describe("SettingsDrawer — override shorthand inputs (#37)", () => {
     await user.type(input, "2b");
     await user.tab();
     expect(screen.getByTestId("coll-value").textContent).toBe("2000000000");
-    expect(input.value).toBe("2000000000");
+    // Displayed comma-formatted on blur for readability (value stays exact).
+    expect(input.value).toBe("2,000,000,000");
+  });
+
+  it("displays the committed value comma-grouped on blur (readability tweak)", async () => {
+    const user = userEvent.setup();
+    render(<Host initial={ENABLED} />);
+    const input = collInput();
+    await user.type(input, "13724763"); // raw 8-digit number
+    await user.tab();
+    expect(input.value).toContain(",");
+    expect(input.value).toBe("13,724,763");
+    // Underlying committed value stays the exact integer.
+    expect(screen.getByTestId("coll-value").textContent).toBe("13724763");
+  });
+
+  it("re-parses a comma-formatted display back to the same number (round-trip)", async () => {
+    const user = userEvent.setup();
+    render(<Host initial={ENABLED} />);
+    const input = collInput();
+    await user.type(input, "2b");
+    await user.tab();
+    expect(input.value).toBe("2,000,000,000");
+    // Focus/edit again: parseShorthand strips commas, so committing the shown
+    // comma string round-trips to the same value.
+    await user.click(input);
+    await user.tab();
+    expect(screen.getByTestId("coll-value").textContent).toBe("2000000000");
+    expect(input.value).toBe("2,000,000,000");
+  });
+
+  it("keeps an empty/cleared field empty (no 0 / NaN rendered)", async () => {
+    const user = userEvent.setup();
+    render(<Host initial={ENABLED} />);
+    const input = collInput();
+    expect(input.value).toBe(""); // value 0 → empty, not "0"
+    await user.type(input, "abc");
+    await user.tab();
+    expect(input.value).toBe(""); // cleared to 0 → still empty, not "0" or "NaN"
   });
 
   it("commits 350k as 350_000", async () => {
