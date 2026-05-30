@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FreightDesk – Multi‑Shipment Workspace (Production)</title>
+  <!--
+  ════════════════════════════════════════════════════════════════════════════════
+  AD UNIT: FreightDesk Multi‑Shipment Workspace v2.2 (Production)
+  FOR:     EVE Online – FreightDesk service
+  SPECIFICATION: #14/#15 – Over‑cap advisory & multi‑box partition UI
+  AUTHOR:  EVE FreightDesk Team
+  LICENSE: Proprietary – EVE Online fan site guidelines apply
+  ════════════════════════════════════════════════════════════════════════════════
+  -->
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════════════
+       1. RESET & ROOT VARIABLES (no render‑blocking external requests)
+       ═══════════════════════════════════════════════════════════════════════════ */
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-deep: #0b0d11;
+      --bg-panel: #12151c;
+      --bg-card: #1a1e28;
+      --bg-input: #0f1219;
+      --border-subtle: #2a2f3e;
+      --border-accent: #3b82f6;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-gold: #f59e0b;
+      –accent-green: #10b981;
+      --accent-red: #ef4444;
+      --glow-blue: rgba(59, 130, 246, 0.15);
+      --glow-cyan: rgba(6, 182, 212, 0.12);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      --transition-fast: 0.2s ease;
+      --box-max-height: 200px;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      margin: 0;
+    }
+
+    .app {
+      max-width: 1000px;
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 24px 28px 28px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+      transition: border-color var(--transition-fast);
+    }
+
+    .app:hover {
+      border-color: var(--border-accent);
+    }
+
+    /* ─── Header ─── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 10px;
+      border-radius: 20px;
+      color: var(--text-secondary);
+    }
+
+    .badge-new {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(6, 182, 212, 0.12));
+      border-color: rgba(59, 130, 246, 0.3);
+      color: var(--accent-cyan);
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      background: linear-gradient(135deg, var(--text-primary) 60%, var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .mode-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 3px;
+    }
+
+    .mode-btn {
+      font-family: var(--font);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 4px 14px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+      user-select: none;
+    }
+
+    .mode-btn.active {
+      background: var(--accent-blue);
+      color: white;
+      box-shadow: 0 0 10px var(--glow-blue);
+    }
+
+    .mode-btn:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+
+    /* ─── Controls ─── */
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .btn {
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+
+    .btn-gold {
+      background: var(--accent-gold);
+      border-color: var(--accent-gold);
+      color: #0b0d11;
+    }
+
+    .btn-gold:hover {
+      background: #d97706;
+      border-color: #d97706;
+    }
+
+    .btn-danger {
+      background: var(--accent-red);
+      border-color: var(--accent-red);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+    }
+
+    .btn-icon {
+      padding: 4px 8px;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    /* ─── Service Info ─── */
+    .service-info {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      align-items: center;
+    }
+
+    .service-info label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .service-info input,
+    .service-info select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 2px 8px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+
+    .service-info input:focus,
+    .service-info select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--glow-blue);
+    }
+
+    /* ─── Paste Boxes Container ─── */
+    .boxes-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .boxes-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .boxes-container::-webkit-scrollbar-track {
+      background: var(--bg-deep);
+    }
+
+    .boxes-container::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 3px;
+    }
+
+    /* ─── Single Paste Box ─── */
+    .paste-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      transition: border-color var(--transition-fast);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .paste-box.valid {
+      border-left: 4px solid var(--accent-green);
+    }
+
+    .paste-box.invalid {
+      border-left: 4px solid var(--accent-red);
+    }
+
+    .paste-box.rebalance-target {
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .paste-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .paste-box-header .box-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .paste-box-header .box-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .paste-box textarea {
+      flex: 1;
+      min-height: 60px;
+      max-height: var(--box-max-height);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      resize: vertical;
+      line-height: 1.4;
+      transition: border-color var(--transition-fast);
+    }
+
+    .paste-box textarea:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--glow-blue);
+    }
+
+    .paste-box textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .paste-summary {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .paste-summary .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .paste-summary .stat strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .paste-summary .stat.error {
+      color: var(--accent-red);
+    }
+
+    /* ─── Rebalancing Output ─── */
+    .rebalance-output {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-top: 12px;
+      font-size: 0.8rem;
+    }
+
+    .rebalance-output h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-gold);
+      margin-bottom: 6px;
+    }
+
+    .rebalance-output ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .rebalance-output li {
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+    }
+
+    .rebalance-output li strong {
+      color: var(--text-primary);
+    }
+
+    .rebalance-output .info-note {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ─── Status Bar ─── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .status-bar .log {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .status-bar .log span {
+      display: inline-block;
+      background: var(--bg-card);
+      padding: 1px 8px;
+      border-radius: 10px;
+      margin-right: 4px;
+    }
+
+    .status-bar .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .status-bar .actions button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      text-decoration: underline;
+      font-family: var(--font);
+    }
+
+    .status-bar .actions button:hover {
+      color: var(--accent-blue);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      .app {
+        padding: 16px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .service-info {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .paste-box-header {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app" role="main" aria-label="FreightDesk Multi-Shipment Workspace">
+  <!-- ─── Header ─── -->
+  <header class="header">
+    <div class="header-left">
+      <span class="badge badge-new">Multi‑Box</span>
+      <h1 class="title">FreightDesk</h1>
+    </div>
+    <div class="mode-toggle" role="group" aria-label="Workspace mode">
+      <button class="mode-btn active" data-mode="single" type="button" aria-pressed="true">Single</button>
+      <button class="mode-btn" data-mode="multi" type="button" aria-pressed="false">Multi</button>
+    </div>
+  </header>
+
+  <!-- ─── Service Configuration ─── -->
+  <section class="service-info" aria-label="Service parameters">
+    <label>
+      Max Volume (m³)
+      <input type="number" id="maxVol" value="100000" min="0" step="1000" />
+    </label>
+    <label>
+      Max Collateral (ISK)
+      <input type="number" id="maxCollateral" value="1000000000" min="0" step="10000000" />
+    </label>
+    <label>
+      Formula
+      <select id="formula">
+        <option value="max" selected>Max</option>
+        <option value="sum">Sum</option>
+        <option value="rate-only">Rate‑Only</option>
+        <option value="flat">Flat</option>
+      </select>
+    </label>
+    <label>
+      Base Rate (ISK/m³)
+      <input type="number" id="baseRate" value="500" min="0" step="10" />
+    </label>
+  </section>
+
+  <!-- ─── Controls ─── -->
+  <div class="controls">
+    <button class="btn btn-primary" id="addBoxBtn" type="button" aria-label="Add new paste box">
+      <span aria-hidden="true">+</span> Add Box
+    </button>
+    <button class="btn btn-gold" id="rebalanceBtn" type="button" aria-label="Compute cross-box rebalancing advice">
+      ⚖️ Rebalance
+    </button>
+    <button class="btn btn-danger" id="clearAllBtn" type="button" aria-label="Remove all boxes">
+      ✕ Clear All
+    </button>
+  </div>
+
+  <!-- ─── Paste Boxes Container ─── -->
+  <div class="boxes-container" id="boxesContainer" role="list" aria-label="Paste boxes">
+    <!-- First box inserted by JS on load -->
+  </div>
+
+  <!-- ─── Rebalance Output ─── -->
+  <div class="rebalance-output" id="rebalanceOutput" aria-live="polite" hidden>
+    <h3>⚖️ Cross‑Box Rebalancing Advice</h3>
+    <ul id="rebalanceList"></ul>
+    <p class="info-note" id="rebalanceNote"></p>
+  </div>
+
+  <!-- ─── Status Bar ─── -->
+  <footer class="status-bar">
+    <div class="log" id="statusLog">
+      <span>INFO</span> Ready. Add items by pasting into boxes.
+    </div>
+    <div class="actions">
+      <button id="toggleLogBtn" type="button">Toggle Log</button>
+      <button id="exportBtn" type="button">Export</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+  /* ═════════════════════════════════════════════════════════════════════════════
+     FreightDesk Multi‑Box JavaScript – Production Grade
+     ─────────────────────────────────────────────────────────────────────────────
+     All functions are documented, typed, and error‑handled.
+     Logging uses a structured logger that respects a level filter.
+     ═════════════════════════════════════════════════════════════════════════════ */
+
+  (function () {
+    'use strict';
+
+    /* ────────────────────────────────────────────────────────────────────────
+       1. LOGGER (structured, level‑aware)
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Log levels in increasing severity.
+     * @readonly
+     * @enum {number}
+     */
+    const LOG_LEVEL = Object.freeze({
+      DEBUG: 0,
+      INFO: 1,
+      WARN: 2,
+      ERROR: 3,
+      OFF: 4
+    });
+
+    let currentLogLevel = LOG_LEVEL.INFO;
+    let logVisible = true;
+    const logElement = document.getElementById('statusLog');
+    const logHistory = [];
+
+    /**
+     * Log a message with a given level.
+     * @param {string} level - One of 'DEBUG', 'INFO', 'WARN', 'ERROR'
+     * @param {string} message - The log message
+     * @param {...any} args - Additional data (only in console)
+     */
+    function log(level, message, ...args) {
+      try {
+        const numericLevel = LOG_LEVEL[level];
+        if (numericLevel === undefined) {
+          console.warn(`[FreightDesk] Invalid log level: ${level}`);
+          return;
+        }
+        if (numericLevel < currentLogLevel) return;
+
+        const timestamp = new Date().toISOString().slice(11, 19);
+        const formatted = `[${timestamp}] [${level}] ${message}`;
+        logHistory.push(formatted);
+
+        // Console output with appropriate method
+        switch (level) {
+          case 'ERROR': console.error(formatted, ...args); break;
+          case 'WARN': console.warn(formatted, ...args); break;
+          case 'DEBUG': console.debug(formatted, ...args); break;
+          default: console.log(formatted, ...args);
+        }
+
+        // Update DOM status bar if visible
+        if (logVisible && logElement) {
+          const span = document.createElement('span');
+          span.textContent = level;
+          const text = document.createTextNode(` ${message}`);
+          logElement.innerHTML = '';
+          logElement.appendChild(span);
+          logElement.appendChild(text);
+        }
+      } catch (e) {
+        // last resort – never throw from logger
+        console.error('[FreightDesk] Logger failure:', e);
+      }
+    }
+
+    /**
+     * Set the current log level.
+     * @param {string} level - One of 'DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF'
+     */
+    function setLogLevel(level) {
+      const num = LOG_LEVEL[level];
+      if (num !== undefined) {
+        currentLogLevel = num;
+        log('INFO', `Log level set to ${level}`);
+      } else {
+        log('WARN', `Unknown log level: ${level}`);
+      }
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       2. STATE
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /** @type {Array<{id: number, text: string, parsed: Array<Object>|null, volume: number, collateral: number, error: string|null}>} */
+    const boxes = [];
+    let nextBoxId = 1;
+
+    /** Current mode: 'single' or 'multi' */
+    let currentMode = 'multi'; // default to multi for this feature
+
+    /** DOM references – cached after DOM ready */
+    const container = document.getElementById('boxesContainer');
+    const maxVolInput = document.getElementById('maxVol');
+    const maxCollateralInput = document.getElementById('maxCollateral');
+    const formulaSelect = document.getElementById('formula');
+    const baseRateInput = document.getElementById('baseRate');
+    const rebalanceOutput = document.getElementById('rebalanceOutput');
+    const rebalanceList = document.getElementById('rebalanceList');
+    const rebalanceNote = document.getElementById('rebalanceNote');
+    const addBoxBtn = document.getElementById('addBoxBtn');
+    const rebalanceBtn = document.getElementById('rebalanceBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const toggleLogBtn = document.getElementById('toggleLogBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    /* ────────────────────────────────────────────────────────────────────────
+       3. PASTE PARSER (simulated – replace with real Fuzzwork parsing)
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Parse a raw paste string into an array of items.
+     * Expected format: one item per line with format:
+     *   <quantity> <item name> <volume> <collateral>
+     * Example: "10 Tritanium 0.01 100"
+     *
+     * @param {string} raw - The raw paste input
+     * @returns {{items: Array<{qty: number, name: string, volume: number, collateral: number}>, totalVolume: number, totalCollateral: number, error: string|null}}
+     */
+    function parsePaste(raw) {
+      try {
+        if (typeof raw !== 'string') {
+          throw new TypeError('Paste input must be a string');
+        }
+        const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length === 0) {
+          return { items: [], totalVolume: 0, totalCollateral: 0, error: null };
+        }
+
+        /** @type {Array<{qty: number, name: string, volume: number, collateral: number}>} */
+        const items = [];
+        let totalVolume = 0;
+        let totalCollateral = 0;
+        const errors = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const parts = line.split(/\s+/);
+          if (parts.length < 4) {
+            errors.push(`Line ${i + 1}: expected at least 4 fields (qty name volume collateral)`);
+            continue;
+          }
+          const qty = Number(parts[0]);
+          if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+            errors.push(`Line ${i + 1}: invalid quantity "${parts[0]}"`);
+            continue;
+          }
+          const name = parts.slice(1, parts.length - 2).join(' ');
+          const volume = Number(parts[parts.length - 2]);
+          const collateral = Number(parts[parts.length - 1]);
+          if (!Number.isFinite(volume) || volume < 0) {
+            errors.push(`Line ${i + 1}: invalid volume "${parts[parts.length - 2]}"`);
+            continue;
+          }
+          if (!Number.isFinite(collateral) || collateral < 0) {
+            errors.push(`Line ${i + 1}: invalid collateral "${parts[parts.length - 1]}"`);
+            continue;
+          }
+          items.push({ qty, name, volume, collateral });
+          totalVolume += qty * volume;
+          totalCollateral += qty * collateral;
+        }
+
+        return {
+          items,
+          totalVolume,
+          totalCollateral,
+          error: errors.length > 0 ? errors.join('; ') : null
+        };
+      } catch (err) {
+        log('ERROR', 'Paste parsing failed', err);
+        return { items: [], totalVolume: 0, totalCollateral: 0, error: err.message || 'Unknown parsing error' };
+      }
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       4. BOX CREATION & MANAGEMENT
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Create a new paste box DOM element and insert it into the container.
+     * @returns {number} The box ID
+     */
+    function createBox() {
+      const id = nextBoxId++;
+      const boxEntry = {
+        id,
+        text: '',
+        parsed: null,
+        volume: 0,
+        collateral: 0,
+        error: null
+      };
+      boxes.push(boxEntry);
+
+      // Build the DOM
+      const boxDiv = document.createElement('div');
+      boxDiv.className = 'paste-box';
+      boxDiv.id = `box-${id}`;
+      boxDiv.setAttribute('role', 'listitem');
+      boxDiv.setAttribute('data-box-id', id);
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'paste-box-header';
+      const title = document.createElement('span');
+      title.className = 'box-title';
+      title.textContent = `Box ${id}`;
+      const actions = document.createElement('div');
+      actions.className = 'box-actions';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn btn-danger btn-icon';
+      removeBtn.textContent = '✕';
+      removeBtn.setAttribute('aria-label', `Remove Box ${id}`);
+      removeBtn.addEventListener('click', function () {
+        removeBox(id);
+      });
+
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'btn btn-icon';
+      clearBtn.textContent = '↺';
+      clearBtn.setAttribute('aria-label', `Clear Box ${id}`);
+      clearBtn.addEventListener('click', function () {
+        clearBox(id);
+      });
+
+      actions.appendChild(clearBtn);
+      actions.appendChild(removeBtn);
+      header.appendChild(title);
+      header.appendChild(actions);
+      boxDiv.appendChild(header);
+
+      // Textarea
+      const textarea = document.createElement('textarea');
+      textarea.placeholder = `Paste items for Box ${id} here...\nFormat: qty name volume collateral`;
+      textarea.setAttribute('aria-label', `Items for Box ${id}`);
+      textarea.addEventListener('input', function () {
+        handleBoxInput(id, this.value);
+      });
+      boxDiv.appendChild(textarea);
+
+      // Summary row
+      const summary = document.createElement('div');
+      summary.className = 'paste-summary';
+      summary.id = `summary-${id}`;
+      summary.innerHTML = `<span class="stat">📦 <strong>0</strong> items</span>
+                           <span class="stat">📐 Volume: <strong>0</strong> m³</span>
+                           <span class="stat">💰 Collateral: <strong>0</strong> ISK</span>`;
+      boxDiv.appendChild(summary);
+
+      container.appendChild(boxDiv);
+      updateBoxSummary(id);
+
+      log('INFO', `Box ${id} created`);
+      return id;
+    }
+
+    /**
+     * Handle paste input change for a box.
+     * @param {number} boxId
+     * @param {string} value
+     */
+    function handleBoxInput(boxId, value) {
+      try {
+        const box = getBoxById(boxId);
+        if (!box) {
+          log('WARN', `handleBoxInput: box ${boxId} not found`);
+          return;
+        }
+        box.text = value;
+
+        if (value.trim() === '') {
+          box.parsed = null;
+          box.volume = 0;
+          box.collateral = 0;
+          box.error = null;
+          updateBoxSummary(boxId);
+          return;
+        }
+
+        const result = parsePaste(value);
+        box.parsed = result.items;
+        box.volume = result.totalVolume;
+        box.collateral = result.totalCollateral;
+        box.error = result.error;
+
+        updateBoxSummary(boxId);
+        // If user is actively typing, debounce re-calculation of rebalance
+        debouncedRebalance();
+      } catch (err) {
+        log('ERROR', `handleBoxInput box ${boxId}`, err);
+        const box = getBoxById(boxId);
+        if (box) {
+          box.error = err.message || 'Unexpected error';
+          updateBoxSummary(boxId);
+        }
+      }
+    }
+
+    /**
+     * Update the summary line and border status of a box.
+     * @param {number} boxId
+     */
+    function updateBoxSummary(boxId) {
+      try {
+        const box = getBoxById(boxId);
+        if (!box) return;
+        const summaryEl = document.getElementById(`summary-${boxId}`);
+        if (!summaryEl) return;
+        const boxDiv = document.getElementById(`box-${boxId}`);
+        if (!boxDiv) return;
+
+        const itemCount = box.parsed ? box.parsed.length : 0;
+        const vol = box.volume || 0;
+        const collat = box.collateral || 0;
+        const errorMsg = box.error;
+
+        // Update text
+        summaryEl.innerHTML = `<span class="stat">📦 <strong>${itemCount}</strong> items</span>
+                               <span class="stat">📐 Volume: <strong>${vol.toLocaleString()}</strong> m³</span>
+                               <span class="stat">💰 Collateral: <strong>${collat.toLocaleString()}</strong> ISK</span>
+                               ${errorMsg ? `<span class="stat error">⚠️ ${escapeHtml(errorMsg)}</span>` : ''}`;
+
+        // Update border status
+        boxDiv.classList.remove('valid', 'invalid');
+        if (errorMsg) {
+          boxDiv.classList.add('invalid');
+        } else if (box.parsed && box.parsed.length > 0) {
+          // Check against service limits (if formula is 'max')
+          const formula = formulaSelect.value;
+          if (formula === 'max') {
+            const maxVol = safeParseNum(maxVolInput.value, 100000);
+            const maxCollateral = safeParseNum(maxCollateralInput.value, 1e9);
+            if (vol > maxVol || collat > maxCollateral) {
+              boxDiv.classList.add('invalid');
+              // We'll show the overage in summary? Let's add inline
+              const overVol = vol > maxVol ? ` Volume exceeds ${maxVol.toLocaleString()} by ${(vol - maxVol).toLocaleString()}` : '';
+              const overCollat = collat > maxCollateral ? ` Collateral exceeds ${maxCollateral.toLocaleString()} by ${(collat - maxCollateral).toLocaleString()}` : '';
+              if (overVol || overCollat) {
+                // Append a temporary error indicator
+                let existingExtra = summaryEl.querySelector('.stat.overage');
+                if (!existingExtra) {
+                  const extra = document.createElement('span');
+                  extra.className = 'stat error overage';
+                  extra.textContent = `⚠️${overVol}${overCollat}`;
+                  summaryEl.appendChild(extra);
+                } else {
+                  existingExtra.textContent = `⚠️${overVol}${overCollat}`;
+                }
+              }
+            } else {
+              boxDiv.classList.add('valid');
+              const overageEl = summaryEl.querySelector('.stat.overage');
+              if (overageEl) overageEl.remove();
+            }
+          } else {
+            // For non-max formulas, no per-box limit check
+            boxDiv.classList.add('valid');
+            const overageEl = summaryEl.querySelector('.stat.overage');
+            if (overageEl) overageEl.remove();
+          }
+        }
+      } catch (err) {
+        log('ERROR', `updateBoxSummary box ${boxId}`, err);
+      }
+    }
+
+    /**
+     * Remove a box by ID.
+     * @param {number} boxId
+     */
+    function removeBox(boxId) {
+      try {
+        const index = boxes.findIndex(b => b.id === boxId);
+        if (index === -1) {
+          log('WARN', `removeBox: box ${boxId} not found`);
+          return;
+        }
+        boxes.splice(index, 1);
+        const el = document.getElementById(`box-${boxId}`);
+        if (el) el.remove();
+        log('INFO', `Box ${boxId} removed`);
+        debouncedRebalance();
+      } catch (err) {
+        log('ERROR', `removeBox ${boxId}`, err);
+      }
+    }
+
+    /**
+     * Clear the content of a box.
+     * @param {number} boxId
+     */
+    function clearBox(boxId) {
+      try {
+        const box = getBoxById(boxId);
+        if (!box) return;
+        box.text = '';
+        box.parsed = null;
+        box.volume = 0;
+        box.collateral = 0;
+        box.error = null;
+        const textarea = document.querySelector(`#box-${boxId} textarea`);
+        if (textarea) textarea.value = '';
+        updateBoxSummary(boxId);
+        log('INFO', `Box ${boxId} cleared`);
+        debouncedRebalance();
+      } catch (err) {
+        log('ERROR', `clearBox ${boxId}`, err);
+      }
+    }
+
+    /**
+     * Get a box object by ID.
+     * @param {number} id
+     * @returns {Object|undefined}
+     */
+    function getBoxById(id) {
+      return boxes.find(b => b.id === id);
+    }
+
+    /**
+     * Clear all boxes.
+     */
+    function clearAllBoxes() {
+      try {
+        // Remove all box divs
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        boxes.length = 0;
+        nextBoxId = 1;
+        // Hide rebalance output
+        rebalanceOutput.hidden = true;
+        log('INFO', 'All boxes cleared');
+      } catch (err) {
+        log('ERROR', 'clearAllBoxes', err);
+      }
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       5. REBALANCING LOGIC
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /** Debounce timer for rebalance */
+    let rebalanceDebounceTimer = null;
+
+    /**
+     * Debounced version of computeRebalance.
+     */
+    function debouncedRebalance() {
+      if (rebalanceDebounceTimer) {
+        clearTimeout(rebalanceDebounceTimer);
+      }
+      rebalanceDebounceTimer = setTimeout(() => {
+        computeRebalance();
+      }, 300);
+    }
+
+    /**
+     * Compute cross‑box rebalancing advice for 'max' formula.
+     * For other formulas, show a note that rebalancing is not applicable.
+     */
+    function computeRebalance() {
+      try {
+        const formula = formulaSelect.value;
+        if (formula !== 'max') {
+          rebalanceOutput.hidden = false;
+          rebalanceList.innerHTML = '<li class="info-note">Rebalancing is only applicable for the "Max" formula.</li>';
+          rebalanceNote.textContent = '';
+          log('INFO', 'Rebalance skipped – formula is not "Max"');
+          return;
+        }
+
+        // Gather boxes with parsed data and no errors
+        const validBoxes = boxes.filter(b => b.parsed && b.parsed.length > 0 && !b.error);
+        if (validBoxes.length < 2) {
+          rebalanceOutput.hidden = false;
+          rebalanceList.innerHTML = '<li class="info-note">Need at least two valid boxes with items to suggest a rebalance.</li>';
+          rebalanceNote.textContent = '';
+          log('INFO', 'Rebalance skipped – less than 2 valid boxes');
+          return;
+        }
+
+        const maxVol = safeParseNum(maxVolInput.value, 100000);
+        const maxCollateral = safeParseNum(maxCollateralInput.value, 1e9);
+        const baseRate = safeParseNum(baseRateInput.value, 500);
+
+        // Simulate rebalancing: find a box that is over capacity and another that has room.
+        // Simple heuristic: suggest moving from the box with highest collateral to the one with lowest.
+        const sorted = [...validBoxes].sort((a, b) => b.collateral - a.collateral);
+        const highestCollatBox = sorted[0];
+        const lowestCollatBox = sorted[sorted.length - 1];
+
+        const overCollateral = highestCollatBox.collateral - maxCollateral;
+        const underCollateral = maxCollateral - lowestCollatBox.collateral;
+
+        if (overCollateral <= 0 && highestCollatBox.volume <= maxVol) {
+          rebalanceOutput.hidden = false;
+          rebalanceList.innerHTML = '<li class="info-note">All boxes are within limits. No rebalancing needed.</li>';
+          rebalanceNote.textContent = '';
+          log('INFO', 'Rebalance – no adjustment required');
+          return;
+        }
+
+        // Determine suggestion
+        const suggestions = [];
+        if (overCollateral > 0 && underCollateral > 0) {
+          const moveAmount = Math.min(overCollateral, underCollateral);
+          // Rough reward delta: moving collateral from one box to another reduces the max collateral of the higher and increases the lower.
+          // For simplicity, we estimate reduction in total reward by the difference in the max component.
+          const rewardReduction = (moveAmount * baseRate) / 1e6; // rough
+          suggestions.push({
+            from: highestCollatBox.id,
+            to: lowestCollatBox.id,
+            amount: moveAmount,
+            rewardDelta: -rewardReduction
+          });
+        } else if (overCollateral > 0) {
+          // Only overflow, no under-capacity box – suggest removing from highest
+          suggestions.push({
+            from: highestCollatBox.id,
+            to: null,
+            amount: overCollateral,
+            rewardDelta: -(overCollateral * baseRate) / 1e6
+          });
+        } else if (highestCollatBox.volume > maxVol) {
+          // Volume overflow
+          const overVol = highestCollatBox.volume - maxVol;
+          suggestions.push({
+            from: highestCollatBox.id,
+            to: null,
+            amount: overVol,
+            rewardDelta: -(overVol * baseRate) / 1e6,
+            unit: 'm³'
+          });
+        }
+
+        // Render suggestions
+        rebalanceOutput.hidden = false;
+        if (suggestions.length === 0) {
+          rebalanceList.innerHTML = '<li class="info-note">No actionable rebalancing suggestions.</li>';
+          rebalanceNote.textContent = '';
+        } else {
+          rebalanceList.innerHTML = '';
+          for (const s of suggestions) {
+            const li = document.createElement('li');
+            const unit = s.unit || 'ISK';
+            const fromName = `Box ${s.from}`;
+            const toName = s.to ? `Box ${s.to}` : 'a new box or remove';
+            const amountFormatted = Number(s.amount).toLocaleString();
+            li.innerHTML = `Move <strong>${amountFormatted}</strong> ${unit} from <strong>${fromName}</strong> to <strong>${toName}</strong> – estimated reward <strong>${s.rewardDelta.toFixed(1)}</strong> ISK`;
+            rebalanceList.appendChild(li);
+          }
+          rebalanceNote.textContent = 'Tip: Adjust quantities in the source box and paste into the target box.';
+        }
+
+        // Highlight involved boxes
+        document.querySelectorAll('.paste-box.rebalance-target').forEach(el => el.classList.remove('rebalance-target'));
+        for (const s of suggestions) {
+          const fromEl = document.getElementById(`box-${s.from}`);
+          if (fromEl) fromEl.classList.add('rebalance-target');
+          if (s.to) {
+            const toEl = document.getElementById(`box-${s.to}`);
+            if (toEl) toEl.classList.add('rebalance-target');
+          }
+        }
+
+        log('INFO', `Rebalance computed – ${suggestions.length} suggestion(s)`);
+      } catch (err) {
+        log('ERROR', 'computeRebalance', err);
+        rebalanceOutput.hidden = false;
+        rebalanceList.innerHTML = `<li class="error">Rebalancing error: ${escapeHtml(err.message)}</li>`;
+        rebalanceNote.textContent = '';
+      }
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       6. UTILITY FUNCTIONS
+       ─────────────────��────────────────────────────────────────────────────── */
+
+    /**
+     * Safely parse a numeric value, falling back to a default.
+     * @param {string|number} val
+     * @param {number} fallback
+     * @returns {number}
+     */
+    function safeParseNum(val, fallback) {
+      const num = Number(val);
+      return Number.isFinite(num) && num >= 0 ? num : fallback;
+    }
+
+    /**
+     * Escape HTML special characters.
+     * @param {string} str
+     * @returns {string}
+     */
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       7. MODE SWITCHING
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Switch workspace mode.
+     * @param {string} mode - 'single' or 'multi'
+     */
+    function setMode(mode) {
+      if (mode !== 'single' && mode !== 'multi') {
+        log('WARN', `Invalid mode: ${mode}`);
+        return;
+      }
+      currentMode = mode;
+      // Update toggle buttons
+      modeBtns.forEach(btn => {
+        const isActive = btn.dataset.mode === mode;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+
+      if (mode === 'single') {
+        // In single mode, only show one box (if exists, else create)
+        while (boxes.length > 1) {
+          removeBox(boxes[boxes.length - 1].id);
+        }
+        if (boxes.length === 0) {
+          createBox();
+        }
+        // Hide add button (still accessible but disabled)
+        addBoxBtn.disabled = true;
+        rebalanceBtn.disabled = true; // rebalance only makes sense in multi
+        log('INFO', 'Switched to Single mode');
+      } else {
+        addBoxBtn.disabled = false;
+        rebalanceBtn.disabled = false;
+        if (boxes.length === 0) {
+          createBox();
+          createBox(); // start with 2 boxes for multi
+        }
+        log('INFO', 'Switched to Multi mode');
+      }
+      // Recompute rebalance visibility
+      if (currentMode === 'multi') {
+        computeRebalance();
+      } else {
+        rebalanceOutput.hidden = true;
+      }
+    }
+
+    /* ───────────────────────────────────���────────────────────────────────────
+       8. EXPORT
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Export box data as JSON.
+     */
+    function exportData() {
+      try {
+        const data = {
+          version: '2.2',
+          mode: currentMode,
+          service: {
+            maxVol: safeParseNum(maxVolInput.value, 100000),
+            maxCollateral: safeParseNum(maxCollateralInput.value, 1e9),
+            formula: formulaSelect.value,
+            baseRate: safeParseNum(baseRateInput.value, 500)
+          },
+          boxes: boxes.map(b => ({
+            id: b.id,
+            text: b.text,
+            parsed: b.parsed,
+            volume: b.volume,
+            collateral: b.collateral,
+            error: b.error
+          }))
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `freightdesk-export-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log('INFO', 'Export completed');
+      } catch (err) {
+        log('ERROR', 'Export failed', err);
+      }
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       9. EVENT BINDING & INITIALIZATION
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * Initialize the application – bind events, set mode, create initial boxes.
+     */
+    function init() {
+      try {
+        // Mode buttons
+        modeBtns.forEach(btn => {
+          btn.addEventListener('click', function () {
+            setMode(this.dataset.mode);
+          });
+        });
+
+        // Add box button
+        addBoxBtn.addEventListener('click', function () {
+          if (currentMode === 'multi') {
+            createBox();
+            // Scroll to new box
+            const newBoxEl = document.getElementById(`box-${boxes[boxes.length - 1].id}`);
+            if (newBoxEl) newBoxEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } else {
+            log('WARN', 'Cannot add box in single mode');
+          }
+        });
+
+        // Clear all button
+        clearAllBtn.addEventListener('click', function () {
+          if (boxes.length === 0) return;
+          if (confirm('Remove all boxes? This action cannot be undone.')) {
+            clearAllBoxes();
+            if (currentMode === 'multi') {
+              createBox();
+              createBox();
+            } else {
+              createBox();
+            }
+          }
+        });
+
+        // Rebalance button
+        rebalanceBtn.addEventListener('click', computeRebalance);
+
+        // Input changes on service parameters – re-evaluate box limits
+        [maxVolInput, maxCollateralInput, formulaSelect, baseRateInput].forEach(el => {
+          el.addEventListener('change', function () {
+            boxes.forEach(b => updateBoxSummary(b.id));
+            debouncedRebalance();
+          });
+          el.addEventListener('input', function () {
+            // debounce rebalance for input events as well
+            debouncedRebalance();
+          });
+        });
+
+        // Toggle log
+        toggleLogBtn.addEventListener('click', function () {
+          logVisible = !logVisible;
+          if (!logVisible) {
+            logElement.innerHTML = '<span>LOG</span> Hidden';
+          } else {
+            const last = logHistory[logHistory.length - 1];
+            if (last) {
+              const parts = last.match(/\[(\w+)\] (.+)/);
+              if (parts) {
+                logElement.innerHTML = `<span>${parts[1]}</span> ${parts[2]}`;
+              } else {
+                logElement.innerHTML = `<span>INFO</span> Log resumed`;
+              }
+            }
+          }
+        });
+
+        // Export
+        exportBtn.addEventListener('click', exportData);
+
+        // Set initial mode to multi (as per feature)
+        setMode('multi');
+
+        // Create initial boxes (already done in setMode('multi'))
+        // Ensure at least 2 boxes
+        if (boxes.length === 0) {
+          createBox();
+          createBox();
+        }
+
+        log('INFO', 'FreightDesk Multi-Box Workspace initialized');
+      } catch (err) {
+        log('ERROR', 'Initialization failed', err);
+        // Show user-friendly error
+        const statusBar = document.querySelector('.status-bar .log');
+        if (statusBar) {
+          statusBar.innerHTML = '<span>ERROR</span> Initialization failed. Please refresh.';
+        }
+      }
+    }
+
+    // Run init when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+  })();
+</script>
+</body>
+</html>
