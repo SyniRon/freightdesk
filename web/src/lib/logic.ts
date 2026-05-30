@@ -88,6 +88,14 @@ export interface Quote {
     formulaResult: number;
     minReward: number;
     rushAdded: number;
+    // True when the raw per-volume value (vol × effective rate, before any
+    // minimum/floor clamp, before the collateral-% branch, and before rush) was
+    // below the effective minimum the shipment is lifted to — i.e. the floor,
+    // not the per-volume rate, sets the reward. Shape-agnostic (#38): for the
+    // `clamped-rate` formula the relevant floor is `f.floor`; for every other
+    // shape it's `minReward` applied outside the formula. Drives the on-card
+    // "too small" advisory.
+    flooredToMinimum: boolean;
   };
 }
 
@@ -138,6 +146,30 @@ export function applyFormula(
         : clamped;
     }
   }
+}
+
+// Whether the raw per-volume value (vol × effective rate) was lifted to the
+// effective minimum/floor — i.e. the floor, not the per-volume rate, sets the
+// reward (#38). Shape-agnostic across both ways services express a floor:
+//   • clamped-rate — the floor lives INSIDE applyFormula (Math.max(raw, floor)),
+//     so compare the raw product against `f.floor`.
+//   • every other shape — the minimum is applied OUTSIDE the formula
+//     (Math.max(minReward, formulaResult)), so compare `formulaResult` against
+//     `minReward`.
+// Computed pre-rush so rush can never mask the floor.
+export function isFlooredToMinimum(
+  f: RouteFormula | undefined,
+  vol: number,
+  formulaResult: number,
+  minReward: number,
+  rateOverride?: number,
+): boolean {
+  if (!f) return false;
+  if (f.kind === "clamped-rate") {
+    const rate = isOverride(rateOverride) ? rateOverride : f.ratePerM3;
+    return vol * rate < f.floor;
+  }
+  return formulaResult < minReward;
 }
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────
@@ -366,6 +398,9 @@ export function evaluateServices(
     const rushApplied = !!route && rushEnabled && rushFee > 0;
     const rushAdded = rushApplied ? rushFee : 0;
     const reward = Math.max(minReward, formulaResult) + rushAdded;
+    const flooredToMinimum = isFlooredToMinimum(
+      route?.formula, vol, formulaResult, minReward, overrides.ratePerM3,
+    );
 
     // A rate override only actually moves the reward for rate-bearing formulas;
     // flag it overridden only when the active route can consume it.
@@ -386,7 +421,7 @@ export function evaluateServices(
       return {
         service: s, route, status: "ineligible", reasons, reward, collateral, vol,
         rushFee, rushApplied, overridden, market, ratePerM3,
-        breakdown: { formula: undefined, formulaResult, minReward, rushAdded },
+        breakdown: { formula: undefined, formulaResult, minReward, rushAdded, flooredToMinimum },
       };
     }
 
@@ -411,7 +446,7 @@ export function evaluateServices(
         return {
           service: s, route, status: "ineligible", reasons, reward, collateral, vol,
           rushFee, rushApplied, overridden, market, ratePerM3,
-          breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
+          breakdown: { formula: route.formula, formulaResult, minReward, rushAdded, flooredToMinimum },
         };
       }
 
@@ -421,14 +456,14 @@ export function evaluateServices(
       return {
         service: s, route, status: "splittable", reasons, reward, collateral, vol,
         rushFee, rushApplied, overridden, market, ratePerM3, split,
-        breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
+        breakdown: { formula: route.formula, formulaResult, minReward, rushAdded, flooredToMinimum },
       };
     }
 
     return {
       service: s, route, status: "eligible", reasons, reward, collateral, vol,
       rushFee, rushApplied, overridden, market, ratePerM3,
-      breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
+      breakdown: { formula: route.formula, formulaResult, minReward, rushAdded, flooredToMinimum },
     };
   });
 }

@@ -276,6 +276,46 @@ describe("evaluateServices with per-route formulas", () => {
   });
 });
 
+describe("evaluateServices floor signal (#38)", () => {
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+  const itl = () => SERVICES.find((s) => s.id === "itl")!;
+  const adfuQuote = (parse: ParseResult, ov = {}) =>
+    evaluateServices(parse, cj6mt, jita, false, ov).find((q) => q.service.id === "adfu-kum-n-go")!;
+  const itlQuote = (parse: ParseResult, ov = {}) =>
+    evaluateServices(parse, cj6mt, jita, false, ov).find((q) => q.service.id === "itl")!;
+
+  it("ADFU max-shape: flag set when raw per-volume is below the 5M minimum", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 1_000, totalValue: 0, collateral: 0 };
+    expect(adfuQuote(parse).breakdown.flooredToMinimum).toBe(true);
+  });
+
+  it("ADFU max-shape: flag clear when raw per-volume clears the minimum", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0, collateral: 0 };
+    expect(adfuQuote(parse).breakdown.flooredToMinimum).toBe(false);
+  });
+
+  it("ITL clamped-rate: flag set when raw per-volume is lifted to the floor", () => {
+    // 2,500 × 900 = 2.25M raw, below the 5M clamp floor → lifted.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 2_500, totalValue: 0, collateral: 0 };
+    const q = itlQuote(parse);
+    expect(q.breakdown.formulaResult).toBe(itl().routes[0].formula.kind === "clamped-rate" ? 5_000_000 : q.breakdown.formulaResult);
+    expect(q.breakdown.flooredToMinimum).toBe(true);
+  });
+
+  it("ITL clamped-rate: flag clear when raw per-volume clears the floor", () => {
+    // 10,000 × 900 = 9M, above the 5M floor → not lifted.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0, collateral: 0 };
+    expect(itlQuote(parse).breakdown.flooredToMinimum).toBe(false);
+  });
+
+  it("ITL clamped-rate: floor flag is computed pre-rush (rush must not mask it)", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 2_500, totalValue: 0, collateral: 0 };
+    const q = evaluateServices(parse, cj6mt, jita, true, {}).find((s) => s.service.id === "itl")!;
+    expect(q.breakdown.flooredToMinimum).toBe(true);
+  });
+});
+
 describe("evaluateServices over-cap splitting (ADR 0010)", () => {
   const jita = LOCATIONS.find((l) => l.id === "jita44")!;
   const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
