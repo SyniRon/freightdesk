@@ -443,6 +443,26 @@ describe("evaluateServices with direct overrides", () => {
     expect(q.collateral).toBe(600_000_000);
     expect(q.vol).toBe(10_000);
   });
+
+  it("exposes the pre-override market figures so cards can render the struck original", () => {
+    const [q] = evaluateServices(base, cj6mt, jita, false, {
+      collateral: 100_000_000_000,
+      vol: 5_000,
+      ratePerM3: 1_234,
+    });
+    // market.* are the market/Jita-derived values regardless of override.
+    expect(q.market.collateral).toBe(600_000_000);
+    expect(q.market.vol).toBe(10_000);
+    // cj6mt → jita is a `max` route @900/m³; the market rate is the formula rate.
+    expect(q.market.ratePerM3).toBe(900);
+  });
+
+  it("market figures equal the live figures when nothing is overridden", () => {
+    const [q] = evaluateServices(base, cj6mt, jita);
+    expect(q.market.collateral).toBe(q.collateral);
+    expect(q.market.vol).toBe(q.vol);
+    expect(q.market.ratePerM3).toBe(900);
+  });
 });
 
 describe("service contract metadata", () => {

@@ -28,6 +28,7 @@ import { ParsedSummary } from "./components/ParsedSummary";
 import { Reveal, REVEAL_MS, STAGGER_MS } from "./components/Reveal";
 import { RoutePicker } from "./components/RoutePicker";
 import { ServicePicker } from "./components/ServicePicker";
+import { OverridesChip } from "./components/OverridesChip";
 import { SettingsDrawer, type AppSettings } from "./components/SettingsDrawer";
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -60,6 +61,9 @@ export default function App() {
   const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  // Session-only dismissal of the "overrides active" chip (issue #40). Not
+  // persisted — a reload with overrides still on re-surfaces it by design.
+  const [overridesChipDismissed, setOverridesChipDismissed] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => {
     const raw = LS.get<any>("settings", DEFAULT_SETTINGS);
     // Migrate: old shape had "sell 5%"/"sell median"/"buy 95%" + collOverride string.
@@ -289,6 +293,12 @@ export default function App() {
           </div>
 
           <div className="col-r">
+            <OverridesChip
+              settings={settings}
+              setSettings={setSettings}
+              dismissed={overridesChipDismissed}
+              onDismiss={() => setOverridesChipDismissed(true)}
+            />
             <Reveal
               present={hasParse}
               enterDelay={REVEAL_MS + STAGGER_MS}

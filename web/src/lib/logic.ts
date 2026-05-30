@@ -72,6 +72,16 @@ export interface Quote {
   rushFee: number;
   rushApplied: boolean;
   overridden: { collateral: boolean; vol: boolean; rate: boolean };
+  // The market/Jita-derived figures *before* any direct override is applied, so
+  // a card can render the struck-through original next to the override value
+  // (issue #39). When the corresponding override is off, market.* equals the
+  // live figure. `ratePerM3` is the active route formula's own per-m³ rate, or
+  // undefined for a flat/rate-free formula (or no route).
+  market: { collateral: number; vol: number; ratePerM3: number | undefined };
+  // The per-m³ rate actually used to price this quote: the override when one is
+  // consumed, otherwise the route formula's own rate (undefined for flat / no
+  // route). The live counterpart to market.ratePerM3.
+  ratePerM3: number | undefined;
   split?: SplitAdvisory;
   breakdown: {
     formula: RouteFormula | undefined;
@@ -95,6 +105,13 @@ export interface QuoteOverrides {
 
 const isOverride = (n: number | undefined): n is number =>
   typeof n === "number" && isFinite(n) && n > 0;
+
+// The per-m³ rate a formula prices against (undefined for the rate-free flat
+// formula). Used to surface the market rate the override displaces on a card.
+export function formulaRate(f: RouteFormula | undefined): number | undefined {
+  if (!f) return undefined;
+  return f.kind === "flat" ? undefined : f.ratePerM3;
+}
 
 // Apply a formula. An optional rate override substitutes for the formula's
 // own ratePerM3 in any rate-bearing leg (sum / max / rate-only); flat is
@@ -329,8 +346,10 @@ export function evaluateServices(
         canonicalEndpoint(r.origin, idToSlug) === originKey &&
         canonicalEndpoint(r.destination, idToSlug) === destKey,
     );
-    const vol = volOver ? overrides.vol! : parse.totalVol;
-    const collateral = collOver ? overrides.collateral! : Math.max(parse.collateral ?? parse.totalValue, 0);
+    const marketVol = parse.totalVol;
+    const marketCollateral = Math.max(parse.collateral ?? parse.totalValue, 0);
+    const vol = volOver ? overrides.vol! : marketVol;
+    const collateral = collOver ? overrides.collateral! : marketCollateral;
     const reasons: string[] = [];
 
     // Route-level overrides win, falling through to service-level. A
@@ -352,6 +371,9 @@ export function evaluateServices(
     // flag it overridden only when the active route can consume it.
     const rateConsumed = rateOver && !!route && route.formula.kind !== "flat";
     const overridden = { collateral: collOver, vol: volOver, rate: rateConsumed };
+    const marketRate = formulaRate(route?.formula);
+    const market = { collateral: marketCollateral, vol: marketVol, ratePerM3: marketRate };
+    const ratePerM3 = rateConsumed ? overrides.ratePerM3! : marketRate;
 
     // ─── Tri-state classification (ADR 0010) ───────────────────────────────
     // No route → ineligible.
@@ -363,7 +385,7 @@ export function evaluateServices(
       );
       return {
         service: s, route, status: "ineligible", reasons, reward, collateral, vol,
-        rushFee, rushApplied, overridden,
+        rushFee, rushApplied, overridden, market, ratePerM3,
         breakdown: { formula: undefined, formulaResult, minReward, rushAdded },
       };
     }
@@ -388,7 +410,7 @@ export function evaluateServices(
         if (uncuttableColl) reasons.push(`A single item is too valuable to fit ${fmtISK(maxCollateral!)} collateral cap`);
         return {
           service: s, route, status: "ineligible", reasons, reward, collateral, vol,
-          rushFee, rushApplied, overridden,
+          rushFee, rushApplied, overridden, market, ratePerM3,
           breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
         };
       }
@@ -398,14 +420,14 @@ export function evaluateServices(
       );
       return {
         service: s, route, status: "splittable", reasons, reward, collateral, vol,
-        rushFee, rushApplied, overridden, split,
+        rushFee, rushApplied, overridden, market, ratePerM3, split,
         breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
       };
     }
 
     return {
       service: s, route, status: "eligible", reasons, reward, collateral, vol,
-      rushFee, rushApplied, overridden,
+      rushFee, rushApplied, overridden, market, ratePerM3,
       breakdown: { formula: route.formula, formulaResult, minReward, rushAdded },
     };
   });
