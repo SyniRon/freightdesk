@@ -1,5 +1,15 @@
+import { useState } from "react";
 import { LOCATIONS } from "../lib/logic";
 import { Arrow } from "./icons";
+
+// Canonical valid range for the collateral-% field — single source of truth.
+// Both the <input> attributes and the commit-time clamp read these, so the
+// declared range and the enforced range can never drift apart (see #36).
+export const COLLATERAL_PCT_MIN = 100;
+export const COLLATERAL_PCT_MAX = 500;
+
+const clampPct = (n: number) =>
+  Math.min(Math.max(n, COLLATERAL_PCT_MIN), COLLATERAL_PCT_MAX);
 
 export interface AppSettings {
   priceSource: "buy" | "split" | "sell";
@@ -50,6 +60,51 @@ function OverrideRow({ title, desc, unit, state, onChange }: OverrideRowProps) {
   );
 }
 
+// Collateral-% field. Controlled by `value` (a number) but kept editable via a
+// local draft string so intermediate keystrokes — empty field, a partial number
+// below the valid range — stick instead of snapping back (the #36 bug). The
+// number range is clamped at commit time (blur), never by dropping keystrokes.
+function CollateralPctRow({
+  value,
+  onCommit,
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? String(value);
+
+  const commit = () => {
+    if (draft === null) return;
+    const n = parseInt(draft, 10);
+    onCommit(isNaN(n) ? value : clampPct(n));
+    setDraft(null);
+  };
+
+  return (
+    <div className="setting">
+      <label className="setting-k" htmlFor="collateral-pct">
+        Collateral as % of value
+      </label>
+      <div className="setting-d">
+        Contract collateral = estimated cargo value × this percentage. Default 120% gives
+        a 20% buffer over Jita value so price volatility doesn't underwater the contract.
+      </div>
+      <input
+        id="collateral-pct"
+        className="text-input mono"
+        type="number"
+        min={COLLATERAL_PCT_MIN}
+        max={COLLATERAL_PCT_MAX}
+        step="any"
+        value={shown}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+      />
+    </div>
+  );
+}
+
 interface SettingsDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -85,27 +140,10 @@ export function SettingsDrawer({ open, onClose, settings, setSettings }: Setting
               ))}
             </div>
           </div>
-          <div className="setting">
-            <div className="setting-k">Collateral as % of value</div>
-            <div className="setting-d">
-              Contract collateral = estimated cargo value × this percentage. Default 120% gives
-              a 20% buffer over Jita value so price volatility doesn't underwater the contract.
-            </div>
-            <input
-              className="text-input mono"
-              type="number"
-              min="100"
-              max="500"
-              step="5"
-              value={settings.collateralPct}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                if (!isNaN(n) && n >= 50 && n <= 1000) {
-                  setSettings({ ...settings, collateralPct: n });
-                }
-              }}
-            />
-          </div>
+          <CollateralPctRow
+            value={settings.collateralPct}
+            onCommit={(n) => setSettings({ ...settings, collateralPct: n })}
+          />
           <div className="setting-group-h">Direct overrides</div>
           <OverrideRow
             title="Override collateral (ISK)"
