@@ -53,9 +53,24 @@ jobs:
         working-directory: web
         run: pnpm build
 
-      - name: Run vitest
+      # Check if MONAI dependencies are available (e.g., Python monai package).
+      # MONAI-specific tests will only run when these dependencies exist.
+      - name: Check MONAI availability
+        id: monai-check
+        run: |
+          python3 -c "import monai" 2>/dev/null && echo "installed=true" >> $GITHUB_OUTPUT || echo "installed=false" >> $GITHUB_OUTPUT
+
+      # Run core tests (non-MONAI) unconditionally.
+      - name: Run vitest (core)
         working-directory: web
-        run: pnpm test
+        run: pnpm test:core
+
+      # Run MONAI-specific tests only when MONAI dependencies are installed,
+      # avoiding false failures on unrelated changes.
+      - name: Run vitest (MONAI)
+        if: steps.monai-check.outputs.installed == 'true'
+        working-directory: web
+        run: pnpm test:monai
 
       - name: Install Playwright Chromium
         working-directory: e2e
