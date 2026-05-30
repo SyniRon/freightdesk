@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "adm-zip": "^0.5.17",
     "jsdom": "^29.1.1",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vitest": "^2.1.9",
