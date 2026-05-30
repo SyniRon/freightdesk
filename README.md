@@ -40,14 +40,16 @@ workflow.
 
 `Dockerfile` is multi-stage (Node SDE/ESI build → Caddy static serve, listens
 on `:8080`). `docker-compose.yml` includes the app, an Umami + Postgres
-analytics sidecar, and a (commented-out) `cloudflared` service for exposing
-via Cloudflare Tunnel. The image build runs the SDE + ESI pipeline inside the
-container (~5 minute first build).
+analytics sidecar, and a `cloudflared` service for exposing the app via
+Cloudflare Tunnel. The app is `expose`-only (no host port) and reached over
+the internal network — public traffic comes in through the tunnel. The image
+build runs the SDE + ESI pipeline inside the container (~5 minute first build).
 
 Copy `.env.example` to `.env`, fill in the secrets, then `docker compose up
--d --build`. To go public, either uncomment the `cloudflared` service and set
-`TUNNEL_TOKEN`, or swap the `app` service's `ports` back to `expose: ["8080"]`
-and front it with whatever reverse proxy you prefer.
+-d --build`. To publish through the included tunnel, set `TUNNEL_TOKEN`. To
+front it yourself instead, drop the `cloudflared` service and either map a
+host port on `app` (`ports: ["8080:8080"]`) or attach your own reverse proxy
+to the app's network.
 
 ## Analytics
 
