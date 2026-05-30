@@ -51,6 +51,7 @@ export interface Quote {
   vol: number;
   rushFee: number;
   rushApplied: boolean;
+  overridden: { collateral: boolean; vol: boolean; rate: boolean };
   breakdown: {
     formula: RouteFormula | undefined;
     formulaResult: number;
@@ -59,11 +60,32 @@ export interface Quote {
   };
 }
 
-export function applyFormula(f: RouteFormula, vol: number, collateral: number): number {
+// Direct user overrides for the three market-derived inputs. Each is optional;
+// a present, finite, positive value wins over the market-derived value. Set by
+// the settings drawer, applied in evaluateServices. See issue #15.
+export interface QuoteOverrides {
+  collateral?: number; // contract collateral, ISK
+  vol?: number;        // packaged volume, m³
+  ratePerM3?: number;  // per-m³ shipping rate, ISK
+}
+
+const isOverride = (n: number | undefined): n is number =>
+  typeof n === "number" && isFinite(n) && n > 0;
+
+// Apply a formula. An optional rate override substitutes for the formula's
+// own ratePerM3 in any rate-bearing leg (sum / max / rate-only); flat is
+// rate-free and so unaffected.
+export function applyFormula(
+  f: RouteFormula,
+  vol: number,
+  collateral: number,
+  rateOverride?: number,
+): number {
+  const rate = (r: number) => (isOverride(rateOverride) ? rateOverride : r);
   switch (f.kind) {
-    case "sum":       return vol * f.ratePerM3 + collateral * f.collateralPct;
-    case "max":       return Math.max(vol * f.ratePerM3, collateral * f.collateralPct);
-    case "rate-only": return vol * f.ratePerM3;
+    case "sum":       return vol * rate(f.ratePerM3) + collateral * f.collateralPct;
+    case "max":       return Math.max(vol * rate(f.ratePerM3), collateral * f.collateralPct);
+    case "rate-only": return vol * rate(f.ratePerM3);
     case "flat":      return f.reward;
   }
 }
@@ -198,11 +220,18 @@ export function evaluateServices(
   origin: Location,
   dest: Location,
   rushEnabled: boolean = false,
+  overrides: QuoteOverrides = {},
 ): Quote[] {
+  // Direct overrides win over market-derived values. The collateral-ISK
+  // override also takes priority over the collateralPct override (which has
+  // already been folded into parse.collateral upstream) — issue #15.
+  const collOver = isOverride(overrides.collateral);
+  const volOver = isOverride(overrides.vol);
+  const rateOver = isOverride(overrides.ratePerM3);
   return SERVICES.map((s): Quote => {
     const route = s.routes.find((r) => r.origin === origin.id && r.destination === dest.id);
-    const vol = parse.totalVol;
-    const collateral = Math.max(parse.collateral ?? parse.totalValue, 0);
+    const vol = volOver ? overrides.vol! : parse.totalVol;
+    const collateral = collOver ? overrides.collateral! : Math.max(parse.collateral ?? parse.totalValue, 0);
     const reasons: string[] = [];
 
     if (!route) {
@@ -225,11 +254,15 @@ export function evaluateServices(
       reasons.push(`Collateral ${fmtISK(collateral)} exceeds ${fmtISK(maxCollateral)} cap — split into multiple contracts`);
     }
 
-    const formulaResult = route ? applyFormula(route.formula, vol, collateral) : 0;
+    const formulaResult = route ? applyFormula(route.formula, vol, collateral, overrides.ratePerM3) : 0;
     const rushFee = route?.rushFee ?? 0;
     const rushApplied = !!route && rushEnabled && rushFee > 0;
     const rushAdded = rushApplied ? rushFee : 0;
     const reward = Math.max(minReward, formulaResult) + rushAdded;
+
+    // A rate override only actually moves the reward for rate-bearing formulas;
+    // flag it overridden only when the active route can consume it.
+    const rateConsumed = rateOver && !!route && route.formula.kind !== "flat";
 
     return {
       service: s,
@@ -241,6 +274,7 @@ export function evaluateServices(
       vol,
       rushFee,
       rushApplied,
+      overridden: { collateral: collOver, vol: volOver, rate: rateConsumed },
       breakdown: { formula: route?.formula, formulaResult, minReward, rushAdded },
     };
   });
