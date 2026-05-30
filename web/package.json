@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "prebuild": "(test -f public/items.json || pnpm build:sde) && pnpm build:services",
+    "prebuild": "((test -f public/items.json && test -f public/locations.json) || pnpm build:sde) && pnpm build:services",
     "preview": "vite preview --host",
     "build:sde": "tsx scripts/build-sde.ts",
     "build:services": "tsx scripts/build-services.ts",

@@ -14,12 +14,23 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import path from "node:path";
 import AdmZip from "adm-zip";
+import { ALIASES } from "../src/lib/aliases";
+import {
+  assembleArtifact,
+  buildStationRows,
+  buildSystemRows,
+  parseStations,
+  parseSystems,
+  pinAliases,
+  type StationRow,
+} from "./lib/extract-locations";
 
 const SDE_URL =
   "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip";
 const CACHE_DIR = path.join(import.meta.dirname, "cache");
 const ZIP_PATH = path.join(CACHE_DIR, "sde.zip");
 const OUT_PATH = path.join(import.meta.dirname, "..", "public", "items.json");
+const LOCATIONS_OUT_PATH = path.join(import.meta.dirname, "..", "public", "locations.json");
 
 // Categories where SDE volume is the *assembled* volume, not the packaged volume.
 // The JSONL SDE format omits packagedVolume entirely; ESI is authoritative here.
@@ -145,6 +156,59 @@ async function emit(types: SdeType[], enriched: Map<number, number>) {
   console.error(`[emit] wrote ${OUT_PATH} (${Object.keys(out).length} items, ${(json.length / 1024).toFixed(0)} KB)`);
 }
 
+// ─── Locations extraction (ADR 0011) ────────────────────────────────────────
+function readJsonlLines(zip: AdmZip, file: string): string[] {
+  const entry = zip
+    .getEntries()
+    .find((e) => e.entryName.endsWith("/" + file) || e.entryName === file);
+  if (!entry) throw new Error(`${file} not found in SDE zip`);
+  return entry.getData().toString("utf8").split("\n");
+}
+
+// NPC station names are not in the SDE — resolve them once via ESI
+// /universe/names (POST, ≤1000 ids per call) and freeze. Names are immutable
+// reference data; this is a bounded build-time lookup, not a runtime one.
+async function resolveStationNames(ids: number[]): Promise<Map<number, string>> {
+  const BATCH = 1000;
+  const names = new Map<number, string>();
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const chunk = ids.slice(i, i + BATCH);
+    const r = await fetch(
+      "https://esi.evetech.net/latest/universe/names/?datasource=tranquility",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chunk),
+      },
+    );
+    if (!r.ok) throw new Error(`[esi] /universe/names → ${r.status}`);
+    const data = (await r.json()) as { id: number; name: string; category: string }[];
+    for (const e of data) {
+      if (e.category === "station") names.set(e.id, e.name);
+    }
+    console.error(`[esi] resolved ${names.size}/${ids.length} station names`);
+  }
+  return names;
+}
+
+async function emitLocations(zipBuf: Buffer) {
+  const zip = new AdmZip(zipBuf);
+  const systems = buildSystemRows(parseSystems(readJsonlLines(zip, "mapSolarSystems.jsonl")));
+  const rawStations = parseStations(readJsonlLines(zip, "npcStations.jsonl"));
+  console.error(`[loc] ${systems.length} systems, ${rawStations.length} NPC stations`);
+
+  const names = await resolveStationNames(rawStations.map((s) => s._key));
+  const stations: StationRow[] = buildStationRows(rawStations, names);
+  const aliases = pinAliases(ALIASES, stations); // throws on unresolved pin
+
+  const art = assembleArtifact(systems, stations, aliases);
+  const json = JSON.stringify(art);
+  await writeFile(LOCATIONS_OUT_PATH, json);
+  console.error(
+    `[loc] wrote ${LOCATIONS_OUT_PATH} (${systems.length} systems, ${stations.length} stations, ${aliases.length} aliases, ${(json.length / 1024).toFixed(0)} KB)`,
+  );
+}
+
 async function main() {
   await mkdir(CACHE_DIR, { recursive: true });
   await mkdir(path.dirname(OUT_PATH), { recursive: true });
@@ -153,6 +217,7 @@ async function main() {
   console.error(`[sde] parsed ${types.length} published types`);
   const enriched = await enrichViaEsi(types);
   await emit(types, enriched);
+  await emitLocations(zipBuf);
 }
 
 main().catch((e) => {

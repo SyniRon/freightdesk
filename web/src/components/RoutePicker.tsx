@@ -1,4 +1,5 @@
 import type { Location } from "../lib/logic";
+import type { LocationIndex } from "../lib/locations";
 import { Arrow } from "./icons";
 import { LocationCombo } from "./LocationCombo";
 
@@ -7,9 +8,12 @@ interface RoutePickerProps {
   dest: Location;
   setOrigin: (loc: Location) => void;
   setDest: (loc: Location) => void;
+  locIndex: LocationIndex | null;
+  /** True when the SDE corpus failed to load — surfaced in the combo. */
+  locUnavailable: boolean;
 }
 
-export function RoutePicker({ origin, dest, setOrigin, setDest }: RoutePickerProps) {
+export function RoutePicker({ origin, dest, setOrigin, setDest, locIndex, locUnavailable }: RoutePickerProps) {
   return (
     <section className="block">
       <header className="block-h">
@@ -32,11 +36,11 @@ export function RoutePicker({ origin, dest, setOrigin, setDest }: RoutePickerPro
         </div>
       </header>
       <div className="route-grid">
-        <LocationCombo label="Origin" value={origin} onChange={setOrigin} />
+        <LocationCombo label="Origin" value={origin} onChange={setOrigin} locIndex={locIndex} locUnavailable={locUnavailable} />
         <div className="route-arrow">
           <Arrow />
         </div>
-        <LocationCombo label="Destination" value={dest} onChange={setDest} />
+        <LocationCombo label="Destination" value={dest} onChange={setDest} locIndex={locIndex} locUnavailable={locUnavailable} />
       </div>
     </section>
   );

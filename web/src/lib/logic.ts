@@ -6,6 +6,7 @@ import type { RouteFormula, Service, ServiceRoute } from "./types";
 export type { RouteFormula, Service, ServiceRoute };
 import { SERVICES } from "./services.generated";
 export { SERVICES };
+import { ALIASES } from "./aliases";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 export interface MatchedLine {
@@ -213,16 +214,24 @@ export function recomputeWithPrices(
   };
 }
 
-// ─── Routes & services (stubbed, layout supports N) ─────────────────────────
+// ─── Routes & services ───────────────────────────────────────────────────────
 // sec: numeric security status (matches EVE's 1.0 → -1.0 scale).
 // Anything ≥ 0.5 is high-sec, 0.1–0.4 is low-sec, ≤ 0.0 is null-sec / wormhole.
-export const LOCATIONS: Location[] = [
-  { id: "jita44", name: "Jita IV - Moon 4 - Caldari Navy Assembly Plant", short: "Jita 4-4", hub: true, sec: 0.9 },
-  { id: "amarr", name: "Amarr VIII (Oris) - Emperor Family Academy", short: "Amarr", hub: true, sec: 1.0 },
-  { id: "rens", name: "Rens VI - Moon 8 - Brutor Tribe Treasury", short: "Rens", hub: true, sec: 0.9 },
-  { id: "dodixie", name: "Dodixie IX - Moon 20 - Federation Navy Assembly", short: "Dodixie", hub: true, sec: 0.9 },
-  { id: "cj6mt", name: "C-J6MT - 1st Taj Mahgoon", short: "C-J6MT", hub: false, alliance: true, sec: -0.4 },
-];
+//
+// `LOCATIONS` is no longer the picker's universe (ADR 0011) — full-universe
+// search now spans the SDE-sourced corpus in locations.ts. It is the curated
+// alias table: the handful of dockables services route to/from, keyed on the
+// human-readable slugs (`jita44`, `cj6mt`) that ServiceRoute.origin/destination
+// reference. Derived from the single alias source so a searched Jita and the
+// pinned Jita are one identity. Hubs + structures keep their friendly labels.
+export const LOCATIONS: Location[] = ALIASES.map((a) => ({
+  id: a.slug,
+  name: a.name,
+  short: a.short,
+  sec: a.sec,
+  hub: a.hub,
+  alliance: a.alliance,
+}));
 
 export interface SecTierInfo {
   tier: "high" | "low" | "null" | "unknown";
@@ -240,6 +249,23 @@ export function secTier(sec: number | null | undefined): SecTierInfo {
 
 export function fmtSec(sec: number | null | undefined): string {
   return sec == null ? "—" : sec.toFixed(1);
+}
+
+// Canonicalize a route endpoint key to the identity a picked Location carries
+// (ADR 0011). Human slugs pass through. A `sta:<id>` escape-hatch endpoint —
+// a station id — resolves to its alias slug when the station is aliased (so it
+// unifies with a picked, preset-reconciled dockable); otherwise it stays the
+// raw `sta:<id>` string, matching a picked non-aliased dockable verbatim.
+// `sys:<id>` (a solar-system id) is a distinct keyspace; no alias pins a bare
+// system, so it always passes through. `idToSlug` is sourced from the
+// build-frozen alias pins in locations.json (station sdeId → slug).
+export function canonicalEndpoint(key: string, idToSlug?: Map<number, string>): string {
+  const m = /^sta:(\d+)$/.exec(key);
+  if (m && idToSlug) {
+    const slug = idToSlug.get(Number(m[1]));
+    if (slug) return slug;
+  }
+  return key;
 }
 
 export function daysSince(iso: string): number {
@@ -284,7 +310,13 @@ export function evaluateServices(
   dest: Location,
   rushEnabled: boolean = false,
   overrides: QuoteOverrides = {},
+  idToSlug?: Map<number, string>,
 ): Quote[] {
+  // Reconcile picked endpoints and route endpoints to one canonical key so a
+  // slug-keyed route matches an aliased dockable picked from search, and a
+  // `sta:<id>` escape-hatch route matches that station's named slug (ADR 0011).
+  const originKey = canonicalEndpoint(origin.id, idToSlug);
+  const destKey = canonicalEndpoint(dest.id, idToSlug);
   // Direct overrides win over market-derived values. The collateral-ISK
   // override also takes priority over the collateralPct override (which has
   // already been folded into parse.collateral upstream) — issue #15.
@@ -292,7 +324,11 @@ export function evaluateServices(
   const volOver = isOverride(overrides.vol);
   const rateOver = isOverride(overrides.ratePerM3);
   return SERVICES.map((s): Quote => {
-    const route = s.routes.find((r) => r.origin === origin.id && r.destination === dest.id);
+    const route = s.routes.find(
+      (r) =>
+        canonicalEndpoint(r.origin, idToSlug) === originKey &&
+        canonicalEndpoint(r.destination, idToSlug) === destKey,
+    );
     const vol = volOver ? overrides.vol! : parse.totalVol;
     const collateral = collOver ? overrides.collateral! : Math.max(parse.collateral ?? parse.totalValue, 0);
     const reasons: string[] = [];

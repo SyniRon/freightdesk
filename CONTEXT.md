@@ -69,6 +69,7 @@ All three flow through the same `parseHangarPaste` by splitting on `\t` and taki
 ## Generated files
 
 - **`web/public/items.json`.** ~25k items, ~25 MB. Built from CCP SDE + ESI enrichment by `scripts/build-sde.ts`. Loaded at runtime by `web/src/lib/items.ts`. Gitignored — regenerated on every container image build (~5 min first time, then cached).
+- **`web/public/locations.json`.** Every solar system (name + security status, offline from `mapSolarSystems.jsonl`) + every NPC station (name resolved once at build via ESI `/universe/names`, each carrying its system's security), plus the build-frozen alias pins (slug → station SDE id). ~140 KB gzip. Emitted by `scripts/build-sde.ts` (ADR 0011), loaded at runtime by `web/src/lib/locations.ts` (eager-on-mount, module-cache, in-flight dedupe — mirrors `items.ts`). The build fails loudly if a pinned alias name resolves to no SDE station. Gitignored.
 - **`web/src/lib/services.generated.ts`.** Typed service config emitted from the YAMLs in `web/services/` by `scripts/build-services.ts`. Includes the `updated` date derived from `git log -1 --format=%cs`. Gitignored.
 
 ## Banner severity

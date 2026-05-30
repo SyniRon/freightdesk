@@ -10,8 +10,10 @@ import {
   resolveLocation,
   makeCustomLocation,
   recomputeWithPrices,
+  canonicalEndpoint,
   LOCATIONS,
   SERVICES,
+  type Location,
 } from "../logic";
 import type { ParseResult } from "../logic";
 
@@ -107,6 +109,58 @@ describe("evaluateServices", () => {
     const parse = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
     const quotes = evaluateServices(parse, origin, custom);
     expect(quotes.every((q) => q.status === "ineligible")).toBe(true);
+  });
+});
+
+describe("endpoint reconciliation (ADR 0011)", () => {
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+  const parse = { matched: [], unmatched: [], totalVol: 10, totalValue: 1_000_000 };
+
+  it("canonicalEndpoint passes human slugs through unchanged", () => {
+    expect(canonicalEndpoint("jita44")).toBe("jita44");
+  });
+
+  it("canonicalEndpoint maps an aliased sta:<id> to its slug", () => {
+    const idToSlug = new Map([[60003760, "jita44"]]);
+    expect(canonicalEndpoint("sta:60003760", idToSlug)).toBe("jita44");
+  });
+
+  it("canonicalEndpoint passes a bare sys:<id> through (distinct keyspace)", () => {
+    const idToSlug = new Map([[60003760, "jita44"]]);
+    expect(canonicalEndpoint("sys:30000142", idToSlug)).toBe("sys:30000142");
+  });
+
+  it("canonicalEndpoint leaves a non-aliased sta:<id> as the raw key", () => {
+    expect(canonicalEndpoint("sta:60000004", new Map())).toBe("sta:60000004");
+  });
+
+  it("an aliased sta:<id> endpoint resolves to its slug route → eligible", () => {
+    // A route picked endpoint stored as the raw station id still matches the
+    // slug-keyed ADFU route once reconciled.
+    const idToSlug = new Map([[60003760, "jita44"]]);
+    const stationJita: Location = {
+      id: "sta:60003760",
+      name: jita.name,
+      short: "Jita",
+      sec: 0.9,
+    };
+    const eligible = evaluateServices(parse, stationJita, cj6mt, false, {}, idToSlug);
+    expect(eligible.some((q) => q.status === "eligible")).toBe(true);
+  });
+
+  it("a non-aliased real dockable is ineligible but never marked custom", () => {
+    const someStation: Location = {
+      id: "sta:60000004",
+      name: "Muvolailen X - Moon 3 - CBD Corporation Storage",
+      short: "Muvolailen",
+      sec: 0.6,
+    };
+    const quotes = evaluateServices(parse, someStation, cj6mt);
+    expect(quotes.every((q) => q.status === "ineligible")).toBe(true);
+    // It must use the neutral no-route message, not the custom one.
+    expect(quotes[0].reasons[0]).toMatch(/Doesn't service this route/);
+    expect(someStation.custom).toBeUndefined();
   });
 });
 
