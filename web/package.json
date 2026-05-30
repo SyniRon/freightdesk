@@ -15,7 +15,7 @@
     "test:e2e": "cd ../e2e && pnpm exec playwright test"
   },
   "dependencies": {
-    "@sentry/react": "^8.55.2",
+    "@sentry/react": "^10.53.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
