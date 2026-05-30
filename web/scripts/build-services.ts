@@ -41,6 +41,18 @@ function validateFormula(f: any, where: string): RouteFormula {
       if (typeof f.reward !== "number")
         throw new Error(`${where}: flat formula needs reward number`);
       return { kind: "flat", reward: f.reward };
+    case "clamped-rate":
+      if (typeof f.ratePerM3 !== "number" || typeof f.floor !== "number" || typeof f.fullLoad !== "number")
+        throw new Error(`${where}: clamped-rate formula needs ratePerM3 + floor + fullLoad numbers`);
+      if (f.collateralPct != null && typeof f.collateralPct !== "number")
+        throw new Error(`${where}: clamped-rate collateralPct must be a number when present`);
+      return {
+        kind: "clamped-rate",
+        ratePerM3: f.ratePerM3,
+        floor: f.floor,
+        fullLoad: f.fullLoad,
+        ...(f.collateralPct != null ? { collateralPct: f.collateralPct } : {}),
+      };
     default:
       throw new Error(`${where}: unknown formula kind "${f.kind}"`);
   }
@@ -68,10 +80,13 @@ function validateContractMeta(c: any, where: string): ServiceContractMeta | unde
   if (typeof c.daysToComplete !== "string") throw new Error(`${where}: contract.daysToComplete must be string`);
   if (c.descriptionHint != null && typeof c.descriptionHint !== "string")
     throw new Error(`${where}: contract.descriptionHint must be string when present`);
+  if (c.source != null && typeof c.source !== "string")
+    throw new Error(`${where}: contract.source must be string when present`);
   return {
     expiration: c.expiration,
     daysToComplete: c.daysToComplete,
     ...(c.descriptionHint != null ? { descriptionHint: c.descriptionHint } : {}),
+    ...(c.source != null ? { source: c.source } : {}),
   };
 }
 

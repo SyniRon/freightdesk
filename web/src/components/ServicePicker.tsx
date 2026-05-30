@@ -76,6 +76,18 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
         );
       })()}
 
+      {q.eligible && q.breakdown.formula?.kind === "clamped-rate" && q.breakdown.formula.collateralPct != null && (() => {
+        const f = q.breakdown.formula;
+        const clamped = Math.min(Math.max(q.vol * f.ratePerM3, f.floor), f.fullLoad);
+        const collPart = q.collateral * f.collateralPct!;
+        if (collPart <= clamped) return null;
+        return (
+          <div className="svc-coll-note">
+            <Warn /> Rate driven by shipment value, not volume — high-value cargo costs more on this route.
+          </div>
+        );
+      })()}
+
       {q.rushFee > 0 && q.eligible && (
         <label className="svc-rush" onClick={(e) => e.stopPropagation()}>
           <input
@@ -139,6 +151,28 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
           {q.breakdown.formula.kind === "flat" && (
             <div className="svc-calc-sum"><span className="dim">flat</span> = <b>{fmtISKFull(q.breakdown.formula.reward)}</b></div>
           )}
+          {q.breakdown.formula.kind === "clamped-rate" && (() => {
+            const f = q.breakdown.formula;
+            const raw = q.vol * f.ratePerM3;
+            const clamped = Math.min(Math.max(raw, f.floor), f.fullLoad);
+            const collPart = f.collateralPct != null ? q.collateral * f.collateralPct : 0;
+            const collWins = f.collateralPct != null && collPart > clamped;
+            return (
+              <>
+                <div className={collWins ? "dim" : ""}>
+                  <span className="dim">volume</span> {fmtVol(q.vol)} × {f.ratePerM3}/m³ = {fmtISKFull(raw)} → clamp [{fmtISK(f.floor)}, {fmtISK(f.fullLoad)}] = {fmtISKFull(clamped)}
+                  {f.collateralPct != null && !collWins && " ← wins"}
+                </div>
+                {f.collateralPct != null && (
+                  <div className={collWins ? "" : "dim"}>
+                    <span className="dim">collateral</span> {fmtISKFull(q.collateral)} × {(f.collateralPct * 100).toFixed(2)}% = {fmtISKFull(collPart)}
+                    {collWins && " ← wins"}
+                  </div>
+                )}
+                <div className="svc-calc-sum"><span className="dim">{f.collateralPct != null ? "max" : "reward"}</span> = <b>{fmtISKFull(q.breakdown.formulaResult)}</b></div>
+              </>
+            );
+          })()}
           <div className="svc-calc-sum"><span className="dim">reward</span> max({fmtISKFull(q.breakdown.minReward)}, formula){q.breakdown.rushAdded > 0 && ` + ${fmtISKFull(q.breakdown.rushAdded)} rush`} = <b>{fmtISKFull(q.reward)}</b></div>
         </div>
       )}

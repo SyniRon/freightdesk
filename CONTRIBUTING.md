@@ -77,7 +77,7 @@ to `logic.ts` in the same PR.
 
 ## Formula kinds
 
-`formula.kind` is a discriminated union with four variants (mirrors
+`formula.kind` is a discriminated union with five variants (mirrors
 `RouteFormula` in `types.ts`). Every value is in raw units: `ratePerM3` is
 ISK per m³, `collateralPct` is a fraction (e.g. `0.005` = 0.5%), `reward` is ISK.
 
@@ -123,6 +123,23 @@ formula:
   reward: 50000000      # 50M ISK flat
 ```
 
+### `clamped-rate` — volume rate clamped to `[floor, fullLoad]`, optional collateral floor
+
+Reward = `clamp(vol × ratePerM3, floor, fullLoad)`, then — when `collateralPct`
+is present — `max()`'d against `collateral × collateralPct`. Use for cards that
+quote a per-m³ rate with a full-load reward ceiling. `fullLoad` is the reward at
+a full load (typically `ratePerM3 × maxVol`). Omit `collateralPct` on legs with
+no collateral component.
+
+```yaml
+formula:
+  kind: clamped-rate
+  ratePerM3: 900
+  floor: 5000000        # lower bound on the volume reward
+  fullLoad: 315000000   # upper bound = 900 × 350,000 m³
+  collateralPct: 0.005  # 0.5% — optional; collateral floor on this leg
+```
+
 ## Contract metadata block
 
 The optional `contract` block holds the manual picks a contractor sets in EVE's
@@ -134,12 +151,14 @@ Create Contract dialog — informational only, not paste fields (mirrors
 | `expiration`      | string | yes      | Free-form display, e.g. `"1 week"`.                |
 | `daysToComplete`  | string | yes      | Free-form display, e.g. `"7 days"`.                |
 | `descriptionHint` | string | no       | Free-form hint, e.g. `"optional"`.                 |
+| `source`          | string | no       | URL of the published rate card this config mirrors.|
 
 ```yaml
 contract:
   expiration: 1 week
   daysToComplete: 7 days
   descriptionHint: optional
+  source: https://example.com/rate-card   # optional — published card this mirrors
 ```
 
 ## Full example

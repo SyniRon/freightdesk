@@ -87,6 +87,15 @@ export function applyFormula(
     case "max":       return Math.max(vol * rate(f.ratePerM3), collateral * f.collateralPct);
     case "rate-only": return vol * rate(f.ratePerM3);
     case "flat":      return f.reward;
+    case "clamped-rate": {
+      // Volume reward clamped to [floor, fullLoad], then (outbound) max()'d
+      // against the collateral-percent component. See ADR 0008 — the ceil for
+      // calculator parity is applied at display time on the final reward.
+      const clamped = Math.min(Math.max(vol * rate(f.ratePerM3), f.floor), f.fullLoad);
+      return f.collateralPct != null
+        ? Math.max(clamped, collateral * f.collateralPct)
+        : clamped;
+    }
   }
 }
 

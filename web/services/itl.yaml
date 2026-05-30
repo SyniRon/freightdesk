@@ -1,0 +1,39 @@
+id: itl
+name: Imperial Transcontinental Logistics
+tagline: Full-load alliance freight
+
+# Service-level defaults
+minReward: 5000000
+maxVol: 350000
+# (no maxCollateral — service does not cap collateral)
+
+routes:
+  # C-J6MT → Jita: max(collateral×%, clamp(vol×rate, floor, fullLoad))
+  # Contract destination: Jita IV - Moon 4 - Caldari Navy Assembly Plant
+  - origin: cj6mt
+    destination: jita44
+    formula:
+      kind: clamped-rate
+      ratePerM3: 900
+      floor: 5000000          # minReward floor on the volume reward
+      fullLoad: 315000000     # ceiling = 900 × 350,000 m³
+      collateralPct: 0.005    # 0.5% — outbound collateral floor
+
+  # Jita → C-J6MT: clamp(vol×rate, floor, fullLoad) — no collateral component
+  # Contract destination: C-J6MT - 1st Taj Mahgoon
+  - origin: jita44
+    destination: cj6mt
+    formula:
+      kind: clamped-rate
+      ratePerM3: 900
+      floor: 5000000
+      fullLoad: 315000000
+
+# Contract window settings — informational only (not paste fields).
+# These are the dropdown picks the user has to set manually in EVE's Create Contract dialog.
+# Contract made out to: Imperial Transcontinental Logistics (no separate tip-jar donee).
+contract:
+  expiration: 1 week
+  daysToComplete: 7 days
+  descriptionHint: optional  # literal value shown to user — meaning EVE's description field can be left blank
+  source: https://www.imperialtranscontinentallogistics.com/  # published rate card this config mirrors
