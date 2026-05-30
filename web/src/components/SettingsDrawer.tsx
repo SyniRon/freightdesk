@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LOCATIONS } from "../lib/logic";
+import { LOCATIONS, parseShorthand, fmtInt } from "../lib/logic";
 import { Arrow } from "./icons";
 
 // Canonical valid range for the collateral-% field — single source of truth.
@@ -32,6 +32,28 @@ interface OverrideRowProps {
 }
 
 function OverrideRow({ title, desc, unit, state, onChange }: OverrideRowProps) {
+  // A local draft string lets the user type EVE shorthand / separators (`2b`,
+  // `1,000,000`) without the value snapping back mid-keystroke. The raw string
+  // is parsed to a number only on blur (no live masking — #37). Unparseable
+  // input commits 0 (treated as cleared, like the old `< 0 → 0` rule), never a
+  // stale or wrong number. The field is a text input with inputMode="numeric"
+  // so mobile gets a numeric keypad while still accepting suffix/comma chars.
+  const [draft, setDraft] = useState<string | null>(null);
+  // While editing (draft non-null) show the raw keystrokes. Otherwise show the
+  // committed value comma-grouped via the shared fmtInt formatter (#37 polish):
+  // exact AND readable (`2000000000` → `2,000,000,000`). A cleared/zero value
+  // renders empty, never `0`/`—` — parseShorthand strips the commas on re-edit,
+  // so the displayed comma string round-trips back to the same number.
+  const shown =
+    draft ??
+    (Number.isFinite(state.value) && state.value > 0 ? fmtInt(state.value) : "");
+
+  const commit = () => {
+    if (draft === null) return;
+    onChange({ ...state, value: parseShorthand(draft) ?? 0 });
+    setDraft(null);
+  };
+
   return (
     <div className="setting">
       <label className="setting-toggle">
@@ -45,16 +67,13 @@ function OverrideRow({ title, desc, unit, state, onChange }: OverrideRowProps) {
       <div className="setting-d">{desc}</div>
       <input
         className="text-input mono"
-        type="number"
-        min="0"
-        step="any"
+        type="text"
+        inputMode="numeric"
         disabled={!state.enabled}
         placeholder={unit}
-        value={Number.isFinite(state.value) && state.value > 0 ? state.value : ""}
-        onChange={(e) => {
-          const n = parseFloat(e.target.value);
-          onChange({ ...state, value: isNaN(n) || n < 0 ? 0 : n });
-        }}
+        value={shown}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
       />
     </div>
   );

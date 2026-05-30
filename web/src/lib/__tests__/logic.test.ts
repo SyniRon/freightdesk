@@ -11,6 +11,7 @@ import {
   makeCustomLocation,
   recomputeWithPrices,
   canonicalEndpoint,
+  parseShorthand,
   LOCATIONS,
   SERVICES,
   type Location,
@@ -24,6 +25,66 @@ const TEST_DB: Record<string, { id: number; vol: number }> = {
   "hobgoblin ii": { id: 2456, vol: 5 },
   "damage control ii": { id: 2048, vol: 5 },
 };
+
+describe("parseShorthand", () => {
+  it("parses b suffix → ×1e9", () => {
+    expect(parseShorthand("2b")).toBe(2_000_000_000);
+  });
+
+  it("parses k suffix → ×1e3", () => {
+    expect(parseShorthand("350k")).toBe(350_000);
+  });
+
+  it("parses m suffix → ×1e6", () => {
+    expect(parseShorthand("5m")).toBe(5_000_000);
+  });
+
+  it("strips comma thousands separators", () => {
+    expect(parseShorthand("1,234")).toBe(1234);
+    expect(parseShorthand("1,000,000")).toBe(1_000_000);
+  });
+
+  it("strips whitespace thousands separators", () => {
+    expect(parseShorthand("1 234")).toBe(1234);
+    expect(parseShorthand("  5000  ")).toBe(5000);
+  });
+
+  it("parses a decimal mantissa with a suffix", () => {
+    expect(parseShorthand("1.5b")).toBe(1_500_000_000);
+    expect(parseShorthand("2.5k")).toBe(2500);
+  });
+
+  it("passes plain digits through unchanged", () => {
+    expect(parseShorthand("5000")).toBe(5000);
+  });
+
+  it("is case-insensitive on suffixes", () => {
+    expect(parseShorthand("2B")).toBe(parseShorthand("2b"));
+    expect(parseShorthand("350K")).toBe(350_000);
+    expect(parseShorthand("5M")).toBe(5_000_000);
+  });
+
+  it("returns null on unparseable / garbage input", () => {
+    expect(parseShorthand("abc")).toBeNull();
+    expect(parseShorthand("")).toBeNull();
+    expect(parseShorthand("   ")).toBeNull();
+    expect(parseShorthand("2x")).toBeNull();
+    expect(parseShorthand("b")).toBeNull();
+  });
+
+  it("does not interpret a comma as a decimal point (out of scope)", () => {
+    // "2,5" is thousands-stripped to "25", never 2.5
+    expect(parseShorthand("2,5")).toBe(25);
+  });
+
+  it("rejects negative values (overrides must be positive)", () => {
+    expect(parseShorthand("-5")).toBeNull();
+  });
+
+  it("rejects zero (treated as empty/cleared)", () => {
+    expect(parseShorthand("0")).toBeNull();
+  });
+});
 
 describe("parseHangarPaste", () => {
   it("parses tab-separated hangar lines", () => {
