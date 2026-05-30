@@ -1,0 +1,1 @@
+No code was provided to improve. The message contains only a feature specification, not a source file. Please paste the actual source code (Python, TypeScript, etc.) you want refactored to production quality, and I will return only the improved version.
