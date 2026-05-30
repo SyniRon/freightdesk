@@ -1,5 +1,62 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { __resetPricingCacheForTesting, fetchPrices, priceFor, PricingError } from "../pricing";
+import { applyFormula } from "../logic";
+
+// ITL's full-load formula (issue #13): a per-m³ volume reward clamped between a
+// floor and a per-route `fullLoad` ceiling, optionally max()'d against a
+// collateral-percent component on the outbound leg.
+describe("applyFormula: clamped-rate (full-load ceiling)", () => {
+  // ITL outbound: max(collateral×0.5%, clamp(vol×900, 5M, 315M))
+  const outbound = {
+    kind: "clamped-rate" as const,
+    ratePerM3: 900,
+    floor: 5_000_000,
+    fullLoad: 315_000_000,
+    collateralPct: 0.005,
+  };
+  // ITL inbound: clamp(vol×900, 5M, 315M) — no collateral component
+  const inbound = {
+    kind: "clamped-rate" as const,
+    ratePerM3: 900,
+    floor: 5_000_000,
+    fullLoad: 315_000_000,
+  };
+
+  it("below floor → minReward floor wins", () => {
+    // 10 m³ × 900 = 9,000 < 5M floor
+    expect(applyFormula(inbound, 10, 0)).toBe(5_000_000);
+  });
+
+  it("mid-range → vol × 900", () => {
+    // 100,000 m³ × 900 = 90M, within [5M, 315M]
+    expect(applyFormula(inbound, 100_000, 0)).toBe(90_000_000);
+  });
+
+  it("above ceiling → fullLoad ceiling (315M)", () => {
+    // 400,000 m³ × 900 = 360M > 315M ceiling
+    expect(applyFormula(inbound, 400_000, 0)).toBe(315_000_000);
+  });
+
+  it("outbound: collateral floor wins when collateral×0.5% beats clamped reward", () => {
+    // 100,000 m³ × 900 = 90M clamped; collateral 50B × 0.5% = 250M > 90M
+    expect(applyFormula(outbound, 100_000, 50_000_000_000)).toBe(250_000_000);
+  });
+
+  it("outbound: clamped reward wins when it beats collateral component", () => {
+    // 100,000 m³ × 900 = 90M; collateral 1B × 0.5% = 5M < 90M
+    expect(applyFormula(outbound, 100_000, 1_000_000_000)).toBe(90_000_000);
+  });
+
+  it("outbound: ceiling still caps the volume side before the collateral max", () => {
+    // vol side capped at 315M; collateral 1B × 0.5% = 5M → 315M wins
+    expect(applyFormula(outbound, 400_000, 1_000_000_000)).toBe(315_000_000);
+  });
+
+  it("honors the ratePerM3 override on the clamped volume leg", () => {
+    // override rate 1000: 100,000 × 1000 = 100M, within clamp
+    expect(applyFormula(inbound, 100_000, 0, 1000)).toBe(100_000_000);
+  });
+});
 
 const FX = {
   "34": {

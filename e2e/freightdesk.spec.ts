@@ -12,7 +12,7 @@ test("empty hero → paste → contract values → copy", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Paste your hangar to start." })).toBeVisible();
   await page.getByRole("button", { name: /Load example into paste box/i }).click();
   await expect(page.locator(".cargo-row").first()).toBeVisible();
-  await expect(page.locator(".service-card")).toHaveCount(1); // alliance-only
+  await expect(page.locator(".service-card")).toHaveCount(2); // ADFU + ITL, both on this route
   await expect(page.locator(".copy-block:not(.is-empty)")).toBeVisible();
   await expect(page.locator(".copy-row")).toHaveCount(4);
 

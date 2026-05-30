@@ -32,7 +32,7 @@ Shipping services are one YAML file per service under `web/services/`. Drop a
 file in, run `pnpm build:services` (which validates it and regenerates
 `src/lib/services.generated.ts`), and open a PR.
 
-See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full schema, all four
+See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full schema, all five
 formula kinds with examples, the service-level fields, and the local-test
 workflow.
 
