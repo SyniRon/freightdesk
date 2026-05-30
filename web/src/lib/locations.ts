@@ -66,6 +66,12 @@ export async function loadLocations(): Promise<LocationIndex> {
       cache = index(data);
       inflight = null;
       return cache;
+    })
+    .catch((e) => {
+      // Clear the in-flight handle so a later call can retry rather than
+      // re-returning the cached rejection forever.
+      inflight = null;
+      throw e;
     });
   return inflight;
 }
@@ -122,16 +128,12 @@ export function dockableLocation(
   return {
     id: `sta:${station.id}`,
     name: station.name,
-    short: shortLabel(station.name),
+    // Short label is the real system name. Don't parse it out of the listing
+    // string — nullsec system names contain hyphens (e.g. "1-NKVT"), so a split
+    // would mangle them ("1-NKVT VI - Moon 1 - ..." → "1").
+    short: sys ? sys.name : station.name,
     sec: sys ? sys.sec : null,
   };
-}
-
-// A station's display short label — the system name is the leading token of the
-// listing string ("Jita IV - Moon 4 - ..." → "Jita").
-function shortLabel(stationName: string): string {
-  const head = stationName.split(/\s|-/)[0];
-  return head || stationName;
 }
 
 // The curated presets as Locations (slug id), derived from the alias table so

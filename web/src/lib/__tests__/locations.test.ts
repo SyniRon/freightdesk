@@ -50,6 +50,19 @@ describe("loadLocations", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 }));
     await expect(loadLocations()).rejects.toThrow(/503/);
   });
+
+  it("clears the in-flight promise after a failure so a later call can retry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ART });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(loadLocations()).rejects.toThrow(/503/);
+    // A retry must re-fetch (not return the cached rejection) and succeed.
+    const idx2 = await loadLocations();
+    expect(idx2.stations).toHaveLength(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("dockableLocation — reconciliation", () => {
@@ -64,6 +77,23 @@ describe("dockableLocation — reconciliation", () => {
     expect(loc.id).toBe("sta:60000004");
     expect(loc.custom).toBeUndefined();
     expect(loc.sec).toBe(-0.41); // inherits its system's security
+  });
+
+  it("short label is the system name, not the pre-hyphen token of the listing", () => {
+    // Nullsec system names contain hyphens ("1-NKVT"). The short label must be
+    // the real system name, not a string-split of the station listing (which
+    // would yield "1" for "1-NKVT VI - Moon 1 - ...").
+    const hyphenArt = {
+      systems: [[30004600, "1-NKVT", -0.36] as [number, string, number]],
+      stations: [
+        [61000001, "1-NKVT VI - Moon 1 - Serpentis Corporation Warehouse", 30004600] as [number, string, number],
+      ],
+      aliases: [],
+    };
+    const hIdx = __indexForTesting(hyphenArt);
+    const loc = dockableLocation({ id: 61000001, name: hyphenArt.stations[0][1], sysId: 30004600 }, hIdx);
+    expect(loc.short).toBe("1-NKVT");
+    expect(loc.name).toBe("1-NKVT VI - Moon 1 - Serpentis Corporation Warehouse");
   });
 });
 

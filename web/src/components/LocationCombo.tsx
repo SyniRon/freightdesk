@@ -23,13 +23,16 @@ interface LocationComboProps {
   /** Indexed SDE corpus; null until loaded (or on fetch failure) — the combo
    *  gracefully degrades to the curated presets. */
   locIndex: LocationIndex | null;
+  /** True when the SDE corpus failed to load (distinct from still-loading): the
+   *  menu says so rather than silently showing only the curated presets. */
+  locUnavailable?: boolean;
 }
 
 type Item =
   | { kind: "result"; result: SearchResult }
   | { kind: "custom"; text: string };
 
-export function LocationCombo({ value, onChange, label, locIndex }: LocationComboProps) {
+export function LocationCombo({ value, onChange, label, locIndex, locUnavailable }: LocationComboProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hi, setHi] = useState(0);
@@ -167,6 +170,12 @@ export function LocationCombo({ value, onChange, label, locIndex }: LocationComb
       )}
       {open && (
         <div className="loc-menu" ref={listRef}>
+          {locUnavailable && !locIndex && (
+            <div className="loc-note-warn">
+              Full-universe search unavailable — showing pinned locations only.
+              Type a system or station name to enter it manually.
+            </div>
+          )}
           {results.length > 0 && <div className="loc-menu-h">{headLabel}</div>}
           {results.map((r, i) => {
             const l = r.loc;

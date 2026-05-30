@@ -9,9 +9,11 @@ interface RoutePickerProps {
   setOrigin: (loc: Location) => void;
   setDest: (loc: Location) => void;
   locIndex: LocationIndex | null;
+  /** True when the SDE corpus failed to load — surfaced in the combo. */
+  locUnavailable: boolean;
 }
 
-export function RoutePicker({ origin, dest, setOrigin, setDest, locIndex }: RoutePickerProps) {
+export function RoutePicker({ origin, dest, setOrigin, setDest, locIndex, locUnavailable }: RoutePickerProps) {
   return (
     <section className="block">
       <header className="block-h">
@@ -34,11 +36,11 @@ export function RoutePicker({ origin, dest, setOrigin, setDest, locIndex }: Rout
         </div>
       </header>
       <div className="route-grid">
-        <LocationCombo label="Origin" value={origin} onChange={setOrigin} locIndex={locIndex} />
+        <LocationCombo label="Origin" value={origin} onChange={setOrigin} locIndex={locIndex} locUnavailable={locUnavailable} />
         <div className="route-arrow">
           <Arrow />
         </div>
-        <LocationCombo label="Destination" value={dest} onChange={setDest} locIndex={locIndex} />
+        <LocationCombo label="Destination" value={dest} onChange={setDest} locIndex={locIndex} locUnavailable={locUnavailable} />
       </div>
     </section>
   );

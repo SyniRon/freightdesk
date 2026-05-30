@@ -83,6 +83,9 @@ export default function App() {
   // SDE-sourced location corpus (ADR 0011). null = loading or unreachable; the
   // combo degrades gracefully to the curated presets either way.
   const [locIndex, setLocIndex] = useState<LocationIndex | null>(null);
+  // True when the SDE corpus failed to load — lets the combo say so instead of
+  // silently showing only the curated presets (indistinguishable from loading).
+  const [locUnavailable, setLocUnavailable] = useState(false);
   const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesError, setPricesError] = useState<"rate-limited" | "server-error" | "network" | null>(null);
@@ -97,7 +100,10 @@ export default function App() {
   useEffect(() => {
     loadLocations()
       .then(setLocIndex)
-      .catch((e) => captureError("loadLocations failed", e));
+      .catch((e) => {
+        setLocUnavailable(true);
+        captureError("loadLocations failed", e);
+      });
   }, []);
 
   // persist
@@ -294,6 +300,7 @@ export default function App() {
                 setOrigin={setOrigin}
                 setDest={setDest}
                 locIndex={locIndex}
+                locUnavailable={locUnavailable}
               />
             </Reveal>
             <Reveal
