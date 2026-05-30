@@ -1,0 +1,53 @@
+name: validate service YAML
+
+# Fast-feedback check for PRs that touch service config YAML only.
+# Regenerates the typed service output from the YAML and runs the unit
+# suite — skipping the slow ~50MB SDE download that the full CI build does.
+# The full build (ci.yml) remains the ultimate gate; this is the quick signal.
+on:
+  pull_request:
+    paths:
+      - "web/services/**/*.yaml"
+      - "web/services/**/*.yml"
+
+concurrency:
+  group: validate-services-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-services:
+    name: validate service YAML
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build-services.ts reads the last commit date per YAML file via
+          # `git log`; fetch full history so that lookup isn't shallow-blank.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # Validates the YAML against the Service schema and emits the typed
+      # services.generated.ts. On a schema break this exits non-zero with the
+      # offending file/field in the message — no extra diagnostics needed.
+      - name: Build services (YAML schema validation)
+        working-directory: web
+        run: pnpm build:services
+
+      - name: Run vitest
+        working-directory: web
+        run: pnpm test
