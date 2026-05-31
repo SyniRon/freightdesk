@@ -25,7 +25,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/adm-zip": "^0.5.8",
     "@types/react": "^19.2.15",
-    "@types/react-dom": "^18.3.1",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.3",
     "adm-zip": "^0.5.17",
     "jsdom": "^29.1.1",
