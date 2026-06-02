@@ -94,6 +94,43 @@ test("active override surfaces a chip + on-card annotation; Clear all persists",
   await expect(page.locator(".overrides-chip")).toHaveCount(0);
 });
 
+test("custom destination → Custom service card prices an uncovered route (ADR 0012)", async ({ page }) => {
+  await page.getByRole("button", { name: /Load example into paste box/i }).click();
+  await expect(page.locator(".loc-btn").first()).toBeVisible();
+
+  // Pick a custom (free-typed) destination no catalog courier covers.
+  await page.locator(".loc-btn").nth(1).click();
+  await page.locator(".loc-input").fill("XX-XYZ");
+  await page.locator(".loc-opt-custom").click();
+
+  // The Custom service card surfaces (no catalog card, no cargo-too-large state).
+  const card = page.locator(".service-card.is-custom");
+  await expect(card).toBeVisible();
+  await expect(page.locator(".svc-custom-badge")).toContainText(/your own rate/i);
+
+  // Before a rate is set: no quote, no copy block.
+  await expect(page.locator(".copy-block:not(.is-empty)")).toHaveCount(0);
+
+  // Set a per-m³ rate → the card prices it and the copy block reveals.
+  await card.getByLabel(/Custom rate per m³/i).fill("800");
+  await expect(card.locator(".svc-reward-v")).not.toHaveText("—");
+  await expect(page.locator(".copy-block:not(.is-empty)")).toBeVisible();
+
+  // Recipient empty = public contract: no Shipper row, neutral hint instead.
+  await expect(page.locator(".copy-public-hint")).toBeVisible();
+  await expect(page.locator(".copy-row").filter({ hasText: "Shipper" })).toHaveCount(0);
+
+  // Fill a recipient → the Shipper row appears with that exact string.
+  await card.getByLabel(/Recipient/i).fill("ADFU Kum N Go Transport Group");
+  const shipper = page.locator(".copy-row").filter({ hasText: "Shipper" });
+  await expect(shipper).toBeVisible();
+  await expect(shipper).toContainText("ADFU Kum N Go Transport Group");
+
+  // The card rate persists across reload under its own key (cargo persists too).
+  await page.reload();
+  await expect(page.locator(".service-card.is-custom").getByLabel(/Custom rate per m³/i)).toHaveValue("800");
+});
+
 test("min-reward floor warning banner appears for tiny shipments", async ({ page }) => {
   // A small Tritanium paste → reward well below the 5M ADFU minimum.
   // Paste first so the RoutePicker becomes visible (it's hidden until there's content).

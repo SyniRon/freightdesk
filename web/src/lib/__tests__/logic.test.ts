@@ -9,6 +9,10 @@ import {
   secTier,
   resolveLocation,
   makeCustomLocation,
+  makeCustomService,
+  catalogCorpNames,
+  isNoRouteMatch,
+  CUSTOM_SERVICE_ID,
   recomputeWithPrices,
   canonicalEndpoint,
   parseShorthand,
@@ -573,6 +577,131 @@ describe("service contract metadata", () => {
     expect(adfu.contract?.expiration).toBe("1 week");
     expect(adfu.contract?.daysToComplete).toBe("7 days");
     expect(adfu.contract?.descriptionHint).toBe("optional");
+  });
+});
+
+describe("makeCustomService (synthetic service for uncovered routes — ADR 0012)", () => {
+  const origin = makeCustomLocation("XX-XYZ");
+  const dest = LOCATIONS.find((l) => l.id === "jita44")!;
+
+  it("builds a rate-only formula when only a rate is set", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    expect(svc.routes).toHaveLength(1);
+    expect(svc.routes[0].formula).toEqual({ kind: "rate-only", ratePerM3: 800 });
+  });
+
+  it("builds a max formula when a collateral-percent is also set", () => {
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    // collateralPct is entered as a percent (0.5%) → stored as the 0.005 fraction.
+    expect(svc.routes[0].formula).toEqual({ kind: "max", ratePerM3: 800, collateralPct: 0.005 });
+  });
+
+  it("uses the custom: id convention and carries no catalog collision", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    expect(svc.id).toBe(CUSTOM_SERVICE_ID);
+    expect(svc.id.startsWith("custom:")).toBe(true);
+    expect(SERVICES.some((s) => s.id === svc.id)).toBe(false);
+  });
+
+  it("carries no caps and no minimum (always eligible, never splittable)", () => {
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    expect(svc.maxVol).toBeUndefined();
+    expect(svc.maxCollateral).toBeUndefined();
+    expect(svc.minReward).toBeUndefined();
+    expect(svc.routes[0].maxVol).toBeUndefined();
+    expect(svc.routes[0].maxCollateral).toBeUndefined();
+    expect(svc.routes[0].minReward).toBeUndefined();
+  });
+
+  it("routes between the exact picked endpoints so the evaluator matches it", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    expect(svc.routes[0].origin).toBe(origin.id);
+    expect(svc.routes[0].destination).toBe(dest.id);
+  });
+
+  it("threads through evaluateServices to an eligible, never-splittable quote", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 999_999_999_999 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.status).toBe("eligible");
+    expect(q.split).toBeUndefined();
+    expect(q.reward).toBe(10_000 * 800); // rate-only, no min lift
+  });
+
+  it("max formula: reward is max(vol×rate, collateral×pct)", () => {
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10, totalValue: 0, collateral: 100_000_000_000 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.reward).toBe(Math.max(10 * 800, 100_000_000_000 * 0.005));
+  });
+
+  it("the card rate, not the global override, is the synthetic service's source", () => {
+    // App builds the synthetic quote by passing the card's own rate to
+    // makeCustomService and an EMPTY overrides object to evaluateServices, so
+    // the global rate override (settings.overrideRate) can never displace it.
+    // Mirror that call shape and assert the card rate wins regardless of any
+    // global override value a caller might still be carrying.
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.reward).toBe(10_000 * 800);
+    expect(q.overridden.rate).toBe(false);
+  });
+});
+
+describe("isNoRouteMatch (custom-card trigger condition — ADR 0012)", () => {
+  const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+  const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+
+  it("true when no catalog service matches the route (custom destination)", () => {
+    const custom = makeCustomLocation("XX-XYZ");
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
+    const quotes = evaluateServices(parse, jita, custom);
+    expect(isNoRouteMatch(quotes)).toBe(true);
+  });
+
+  it("true for an unconfigured catalog pair (e.g. amarr origin)", () => {
+    const amarr = LOCATIONS.find((l) => l.id === "amarr")!;
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
+    const quotes = evaluateServices(parse, amarr, jita);
+    expect(isNoRouteMatch(quotes)).toBe(true);
+  });
+
+  it("false when a catalog service is eligible", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 500_000_000 };
+    const quotes = evaluateServices(parse, cj6mt, jita);
+    expect(isNoRouteMatch(quotes)).toBe(false);
+  });
+
+  it("false when a route matches but the load is splittable (over-cap)", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 999_999, totalValue: 0 };
+    const quotes = evaluateServices(parse, cj6mt, jita);
+    expect(quotes.some((q) => q.status === "splittable")).toBe(true);
+    expect(isNoRouteMatch(quotes)).toBe(false);
+  });
+
+  it("false for the cargo-too-large case — a route matched but an indivisible unit can't fit", () => {
+    // One unit exceeds the volume cap: route matches, ineligible by unit, NOT no-route.
+    const parse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 1, vol: 400_000, price: 0, id: 1 }],
+      unmatched: [],
+      totalVol: 400_000,
+      totalValue: 0,
+    };
+    const quotes = evaluateServices(parse, cj6mt, jita);
+    expect(quotes.every((q) => q.status === "ineligible")).toBe(true);
+    expect(isNoRouteMatch(quotes)).toBe(false);
+  });
+});
+
+describe("catalogCorpNames (Recipient combobox seed)", () => {
+  it("returns the exact corp-name strings from the catalog services", () => {
+    expect(catalogCorpNames()).toContain("ADFU Kum N Go Transport Group");
+    expect(catalogCorpNames()).toContain("Imperial Transcontinental Logistics");
+  });
+  it("is deduplicated", () => {
+    const names = catalogCorpNames();
+    expect(new Set(names).size).toBe(names.length);
   });
 });
 

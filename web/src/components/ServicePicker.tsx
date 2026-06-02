@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { daysSince, fmtISK, fmtISKFull, fmtVol, type Quote } from "../lib/logic";
+import { useState, type ReactNode } from "react";
+import { daysSince, fmtISK, fmtISKFull, fmtVol, isNoRouteMatch, type Quote } from "../lib/logic";
 import { Caret, Warn } from "./icons";
 
 // Inline "override" tag for a card line whose value comes from a direct
@@ -269,12 +269,18 @@ interface ServicePickerProps {
   setSelectedId: (id: string) => void;
   rushEnabled: boolean;
   setRushEnabled: (v: boolean) => void;
+  // The Custom service card (ADR 0012). Rendered in place of the empty state
+  // ONLY on the no-route-matched ineligibility — never for cargo-too-large.
+  customCard?: ReactNode;
 }
 
-export function ServicePicker({ quotes, selectedId, setSelectedId, rushEnabled, setRushEnabled }: ServicePickerProps) {
+export function ServicePicker({ quotes, selectedId, setSelectedId, rushEnabled, setRushEnabled, customCard }: ServicePickerProps) {
   // A card is shown for eligible AND splittable; only all-ineligible drops to
   // the empty state (ADR 0010). Eligible sorts ahead of splittable.
   const anyShown = quotes.some(isShown);
+  // The custom card replaces the empty state only on the no-route-matched case;
+  // cargo-too-large keeps its existing empty state (a rate can't fix a cap).
+  const showCustom = !anyShown && !!customCard && isNoRouteMatch(quotes);
   const rank = (q: Quote) => (q.status === "eligible" ? 2 : q.status === "splittable" ? 1 : 0);
   const cost = (q: Quote) => (q.status === "splittable" ? q.split!.allInCost : q.reward);
   return (
@@ -286,12 +292,16 @@ export function ServicePicker({ quotes, selectedId, setSelectedId, rushEnabled, 
           <p>
             {anyShown
               ? "Pick a courier. Over-cap services show a split advisory; ineligible ones are dimmed with the reason."
-              : "No supported service covers this shipment."}
+              : showCustom
+                ? "No catalog courier covers this route — price it with your own rate below."
+                : "No supported service covers this shipment."}
           </p>
         </div>
       </header>
 
-      {anyShown ? (
+      {showCustom ? (
+        <div className="services">{customCard}</div>
+      ) : anyShown ? (
         <div className="services">
           {quotes
             .slice()

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { ServicePicker } from "../ServicePicker";
-import { evaluateServices, LOCATIONS, type ParseResult, type Quote } from "../../lib/logic";
+import { evaluateServices, makeCustomLocation, LOCATIONS, type ParseResult, type Quote } from "../../lib/logic";
 
 const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
 const jita = LOCATIONS.find((l) => l.id === "jita44")!;
@@ -91,6 +91,49 @@ describe("ServicePicker override annotations", () => {
     const collCell = within(card).getByText("Collateral").closest(".svc-cell") as HTMLElement;
     expect(within(collCell).queryByText("override")).toBeNull();
     expect(collCell.querySelector(".svc-struck")).toBeNull();
+  });
+});
+
+describe("ServicePicker custom-card trigger (ADR 0012)", () => {
+  const MARKER = <div data-testid="custom-card-slot">CUSTOM CARD</div>;
+
+  function renderWith(quotes: Quote[]) {
+    return render(
+      <ServicePicker
+        quotes={quotes}
+        selectedId={undefined}
+        setSelectedId={() => {}}
+        rushEnabled={false}
+        setRushEnabled={() => {}}
+        customCard={MARKER}
+      />,
+    );
+  }
+
+  it("renders the custom card when no catalog service matches the route", () => {
+    const custom = makeCustomLocation("XX-XYZ");
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 100, totalValue: 100_000_000 };
+    renderWith(evaluateServices(parse, jita, custom));
+    expect(screen.getByTestId("custom-card-slot")).toBeInTheDocument();
+  });
+
+  it("does NOT render the custom card for the cargo-too-large case", () => {
+    // One indivisible unit exceeds the volume cap on a matched route.
+    const parse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 1, vol: 400_000, price: 0, id: 1 }],
+      unmatched: [],
+      totalVol: 400_000,
+      totalValue: 0,
+    };
+    renderWith(evaluateServices(parse, cj6mt, jita));
+    expect(screen.queryByTestId("custom-card-slot")).toBeNull();
+    // The cargo-too-large empty state stays exactly as-is.
+    expect(screen.getByText(/single item can't fit/i)).toBeInTheDocument();
+  });
+
+  it("does NOT render the custom card when a catalog service is eligible", () => {
+    renderWith(quotesFor());
+    expect(screen.queryByTestId("custom-card-slot")).toBeNull();
   });
 });
 

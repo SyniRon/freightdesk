@@ -635,6 +635,45 @@ button { font-family: inherit; }
   display: flex; align-items: center; gap: 8px;
   border-radius: var(--r-1);
 }
+
+/* ── Custom service card (ADR 0012) — the user's own rate for an uncovered
+   route. Visibly distinct from catalog couriers: dashed accent border + badge
+   so it never reads as a real courier quote. */
+.service-card.is-custom {
+  cursor: default;
+  border-style: dashed;
+  border-color: oklch(from var(--accent) l c h / .55);
+}
+.svc-custom-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: oklch(from var(--accent) l c h / .12);
+  vertical-align: middle;
+}
+.svc-custom-inputs {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--bd-1);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.svc-custom-field { display: flex; flex-direction: column; gap: 4px; }
+.svc-custom-input {
+  background: var(--bg-0);
+  border: 1px solid var(--bd-2);
+  border-radius: var(--r-1);
+  padding: 7px 9px;
+  color: var(--fg-1);
+  font-size: 13.5px;
+}
+.svc-custom-input:focus { outline: none; border-color: var(--accent); }
+.copy-public-hint { margin-bottom: var(--gap-block-inner); font-size: 12.5px; }
 /* Over-cap splittable card — advisory, not blocked. Reuses --warn accents. */
 .service-card.is-splittable .svc-reward-v { color: var(--warn); }
 .svc-split {

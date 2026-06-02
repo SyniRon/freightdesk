@@ -10,8 +10,13 @@ import { track, trackPageview, valueBucket, volumeBucket } from "./lib/analytics
 import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import { loadLocations, type LocationIndex } from "./lib/locations";
 import {
+  catalogCorpNames,
+  CUSTOM_SERVICE_ID,
   evaluateServices,
+  isNoRouteMatch,
+  makeCustomService,
   parseHangarPaste,
+  parseShorthand,
   recomputeWithPrices,
   resolveLocation,
   type Location,
@@ -28,6 +33,7 @@ import { ParsedSummary } from "./components/ParsedSummary";
 import { Reveal, REVEAL_MS, STAGGER_MS } from "./components/Reveal";
 import { RoutePicker } from "./components/RoutePicker";
 import { ServicePicker } from "./components/ServicePicker";
+import { CustomServiceCard } from "./components/CustomServiceCard";
 import { OverridesChip } from "./components/OverridesChip";
 import { SettingsDrawer, type AppSettings } from "./components/SettingsDrawer";
 
@@ -59,6 +65,12 @@ export default function App() {
   );
   const [selectedSvc, setSelectedSvc] = useState<string>(() => LS.get<string>("svc", "adfu-kum-n-go"));
   const [rushEnabled, setRushEnabled] = useState<boolean>(() => LS.get<boolean>("rush", false));
+  // Custom-service card inputs (ADR 0012). Persisted under their OWN eveship.*
+  // keys, independent of the global rate override (settings.overrideRate) —
+  // changing one must never affect the other.
+  const [customRate, setCustomRate] = useState<string>(() => LS.get<string>("customRate", ""));
+  const [customCollateralPct, setCustomCollateralPct] = useState<string>(() => LS.get<string>("customCollateralPct", ""));
+  const [customRecipient, setCustomRecipient] = useState<string>(() => LS.get<string>("customRecipient", ""));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   // Session-only dismissal of the "overrides active" chip (issue #40). Not
@@ -117,6 +129,9 @@ export default function App() {
   useEffect(() => LS.set("svc", selectedSvc), [selectedSvc]);
   useEffect(() => LS.set("rush", rushEnabled), [rushEnabled]);
   useEffect(() => LS.set("settings", settings), [settings]);
+  useEffect(() => LS.set("customRate", customRate), [customRate]);
+  useEffect(() => LS.set("customCollateralPct", customCollateralPct), [customCollateralPct]);
+  useEffect(() => LS.set("customRecipient", customRecipient), [customRecipient]);
 
   // density + layout attributes (defaults baked in; ready for settings toggle)
   useEffect(() => {
@@ -196,14 +211,38 @@ export default function App() {
     () => evaluateServices(pricedParse, origin, dest, rushEnabled, overrides, locIndex?.sdeIdToSlug),
     [pricedParse, origin, dest, rushEnabled, overrides, locIndex],
   );
+
+  // Custom service (ADR 0012): only on the no-route-matched ineligibility, and
+  // only once a rate is set. Built from the card's OWN inputs (not the global
+  // override) and fed through the SAME evaluateServices pipeline — no parallel
+  // render path. The collateral-% is optional (rate-only vs max formula).
+  const noRoute = isNoRouteMatch(quotes);
+  const customRateNum = parseShorthand(customRate);
+  const customQuote = useMemo(() => {
+    if (!noRoute || customRateNum == null) return undefined;
+    const pctNum = parseShorthand(customCollateralPct);
+    const svc = makeCustomService(
+      { ratePerM3: customRateNum, collateralPct: pctNum ?? undefined },
+      origin,
+      dest,
+    );
+    return evaluateServices(pricedParse, origin, dest, false, {}, locIndex?.sdeIdToSlug, [svc])[0];
+  }, [noRoute, customRateNum, customCollateralPct, origin, dest, pricedParse, locIndex]);
+
   const selectedQuote =
+    (noRoute ? customQuote : undefined) ||
     quotes.find((q) => q.service.id === selectedSvc) ||
     quotes.find((q) => q.status === "eligible") ||
     quotes.find((q) => q.status === "splittable");
 
-  // auto-select first eligible
+  // auto-select first eligible. The synthetic custom service is never persisted
+  // as the catalog selection — it's selected implicitly whenever it's present.
   useEffect(() => {
-    if (selectedQuote && selectedQuote.service.id !== selectedSvc) {
+    if (
+      selectedQuote &&
+      selectedQuote.service.id !== selectedSvc &&
+      selectedQuote.service.id !== CUSTOM_SERVICE_ID
+    ) {
       setSelectedSvc(selectedQuote.service.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,6 +363,18 @@ export default function App() {
                 setSelectedId={handleSelectSvc}
                 rushEnabled={rushEnabled}
                 setRushEnabled={setRushEnabled}
+                customCard={
+                  <CustomServiceCard
+                    quote={customQuote}
+                    rate={customRate}
+                    setRate={setCustomRate}
+                    collateralPct={customCollateralPct}
+                    setCollateralPct={setCustomCollateralPct}
+                    recipient={customRecipient}
+                    setRecipient={setCustomRecipient}
+                    recipientOptions={catalogCorpNames()}
+                  />
+                }
               />
             </Reveal>
             <Reveal
@@ -331,7 +382,7 @@ export default function App() {
               enterDelay={REVEAL_MS + 3 * STAGGER_MS}
               exitDelay={0}
             >
-              <ContractCopy quote={selectedQuote} origin={origin} dest={dest} warnings={contractWarnings} />
+              <ContractCopy quote={selectedQuote} origin={origin} dest={dest} warnings={contractWarnings} recipient={customRecipient} />
             </Reveal>
           </div>
         </main>

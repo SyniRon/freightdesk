@@ -1,5 +1,5 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
-import { fmtISKFull, type Location, type Quote } from "../lib/logic";
+import { CUSTOM_SERVICE_ID, fmtISKFull, type Location, type Quote } from "../lib/logic";
 import { track } from "../lib/analytics";
 import { Check, Copy, Warn } from "./icons";
 
@@ -55,19 +55,30 @@ interface ContractCopyProps {
   origin: Location;
   dest: Location;
   warnings: { unmatched: number; noPriceItems: number };
+  // The custom-service Shipper / "Recipient / Issue To" assignee string. Only
+  // consumed for the synthetic Custom service (ADR 0012). Empty/undefined means
+  // a public contract: the Shipper row is omitted (never copy an empty string).
+  recipient?: string;
 }
 
-export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProps) {
+export function ContractCopy({ quote, origin, dest, warnings, recipient }: ContractCopyProps) {
   const [toast, copy] = useClipboard();
+  const isCustom = quote?.service.id === CUSTOM_SERVICE_ID;
   const trackedCopy = (value: string, label: string) => {
     copy(value, label);
     if (quote && quote.status === "eligible") {
-      track("copy", {
-        field: label.toLowerCase(),
-        service: quote.service.id,
-        route: `${origin.id}->${dest.id}`,
-        rushApplied: quote.rushApplied,
-      });
+      // The custom-service conversion event is redacted (ADR 0007 + 0012): a
+      // fixed `service: "custom"` and `custom: true`, never the user-typed
+      // destination or recipient string. The count is an intentional demand
+      // signal for which real services to add next.
+      track("copy", isCustom
+        ? { field: label.toLowerCase(), service: "custom", custom: true, rushApplied: quote.rushApplied }
+        : {
+            field: label.toLowerCase(),
+            service: quote.service.id,
+            route: `${origin.id}->${dest.id}`,
+            rushApplied: quote.rushApplied,
+          });
     }
   };
   if (!quote || quote.status !== "eligible") {
@@ -96,6 +107,12 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
   const vol = Math.round(quote.vol * 100) / 100;        // display only — 2dp
   const coll = Math.ceil(quote.collateral);             // ceil to match shipper calculators (kumgo parity)
   const rew = Math.ceil(quote.reward);                  // ceil to match shipper calculators (kumgo parity)
+  // Shipper / "Recipient / Issue To" assignee. Catalog services use the corp
+  // name; the custom service uses the user's recipient (which may be empty →
+  // public contract, no Shipper row, never an empty string copied). ADR 0012.
+  const recipientStr = (recipient ?? "").trim();
+  const shipperValue = isCustom ? recipientStr : quote.service.name;
+  const publicContract = isCustom && shipperValue.length === 0;
   return (
     <section className="block copy-block">
       <header className="block-h">
@@ -133,14 +150,22 @@ export function ContractCopy({ quote, origin, dest, warnings }: ContractCopyProp
         </div>
       )}
 
+      {publicContract && (
+        <div className="copy-public-hint dim">
+          Public contract — leave Recipient / Issue To blank so any hauler can accept.
+        </div>
+      )}
+
       <div className="copy-grid">
-        <CopyRow
-          label="Shipper"
-          value={quote.service.name}
-          hint="paste into Recipient / Issue To field"
-          copy={trackedCopy}
-          toast={toast}
-        />
+        {!publicContract && (
+          <CopyRow
+            label="Shipper"
+            value={shipperValue}
+            hint="paste into Recipient / Issue To field"
+            copy={trackedCopy}
+            toast={toast}
+          />
+        )}
         <CopyRow
           label="Destination"
           value={dest.name}

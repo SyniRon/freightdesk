@@ -379,6 +379,7 @@ export function evaluateServices(
   rushEnabled: boolean = false,
   overrides: QuoteOverrides = {},
   idToSlug?: Map<number, string>,
+  services: Service[] = SERVICES,
 ): Quote[] {
   // Reconcile picked endpoints and route endpoints to one canonical key so a
   // slug-keyed route matches an aliased dockable picked from search, and a
@@ -391,7 +392,7 @@ export function evaluateServices(
   const collOver = isOverride(overrides.collateral);
   const volOver = isOverride(overrides.vol);
   const rateOver = isOverride(overrides.ratePerM3);
-  return SERVICES.map((s): Quote => {
+  return services.map((s): Quote => {
     const route = s.routes.find(
       (r) =>
         canonicalEndpoint(r.origin, idToSlug) === originKey &&
@@ -499,6 +500,61 @@ export function makeCustomLocation(text: string): Location {
     sec: null,
     custom: true,
   };
+}
+
+// The single synthetic-service id (ADR 0012). Reuses the `custom:` prefix used
+// for custom locations so it never collides with a catalog service id.
+export const CUSTOM_SERVICE_ID = "custom:service";
+
+// Card inputs for the synthetic Custom service. `ratePerM3` is the user-set
+// per-m³ rate (its own card-local state, NOT the global override). `collPct` is
+// an optional collateral-percent entered as a percent (e.g. 0.5 for 0.5%).
+export interface CustomServiceInput {
+  ratePerM3: number;
+  collateralPct?: number;
+}
+
+// Build a synthetic Service for a route no catalog service covers (ADR 0012).
+// One ServiceRoute between the exact picked endpoints, with a formula derived
+// from the card inputs: `rate-only` when only a rate is set, `max` when a
+// collateral-percent is also present (the percent is converted to the fraction
+// the formula multiplies against). Carries NO caps and NO minReward, so it is
+// always `eligible` and never `splittable`. Fed through evaluateServices like
+// any catalog service — never a parallel render path.
+export function makeCustomService(
+  input: CustomServiceInput,
+  origin: Location,
+  dest: Location,
+): Service {
+  const { ratePerM3, collateralPct } = input;
+  const hasColl = typeof collateralPct === "number" && isFinite(collateralPct) && collateralPct > 0;
+  const formula: RouteFormula = hasColl
+    ? { kind: "max", ratePerM3, collateralPct: collateralPct! / 100 }
+    : { kind: "rate-only", ratePerM3 };
+  return {
+    id: CUSTOM_SERVICE_ID,
+    name: "Custom service",
+    tagline: "Your own rate",
+    routes: [{ origin: origin.id, destination: dest.id, formula }],
+    updated: new Date().toISOString().slice(0, 10),
+  };
+}
+
+// The custom-card trigger (ADR 0012): true only on the no-route-matched
+// ineligibility — no catalog service's route matches the picked endpoints at
+// all. Distinct from cargo-too-large (a route *did* match but an indivisible
+// unit can't fit, so `q.route` is defined): a manual rate can't fix a physical
+// cap, so the card must not appear there. A quote with a matched route — in any
+// status — means the route is covered.
+export function isNoRouteMatch(quotes: Quote[]): boolean {
+  return quotes.length > 0 && quotes.every((q) => q.route === undefined);
+}
+
+// The catalog services' exact corp-name strings, deduplicated — seeds the
+// Recipient combobox so a user can pick a known shipper (bridging catalog lag)
+// or free-type their own (ADR 0012, CONTEXT.md › Recipient).
+export function catalogCorpNames(): string[] {
+  return Array.from(new Set(SERVICES.map((s) => s.name)));
 }
 
 // Resolve a stored location value back into an object. Handles legacy id-string
