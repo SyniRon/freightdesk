@@ -31,8 +31,8 @@ Conversion event: **`copy` with the field name** (Shipper / Destination / Reward
 
 ## Own-traffic filtering
 
-Sessions reaching the app off the public origin (operator/dev access over non-public hostnames) were registering in the rollups and skewing low-volume counts. Stock Umami does **not** drop events by the website's configured domain — that field is metadata only; the server ingests every hostname. The native filter lives in the tracker, not the server.
+Sessions reaching the app off the public origin (operator/dev access over non-public hostnames) were registering in the rollups and skewing low-volume counts. Stock Umami (verified against the `umami:postgresql-latest` image, 2026-06) does **not** drop events by the website's configured domain — that field is metadata only; the server ingests every hostname. The native filter lives in the tracker, not the server.
 
-We gate with the tracker's **`data-domains` allowlist**: the script refuses to send events unless `window.location.hostname` is in the list. The allowlist is supplied at build time via `VITE_UMAMI_DOMAINS` (same pattern as the website ID — operator config, not committed). When unset, the tracker counts all hostnames (the prior behaviour), so a fork without the var is unaffected. A production deploy must set it, or own-traffic creeps back in.
+We gate with the tracker's **`data-domains` allowlist**: the script refuses to send events unless `window.location.hostname` exactly matches an entry in the list. The allowlist is supplied at build time via `VITE_UMAMI_DOMAINS` (same pattern as the website ID — operator config, not committed). When unset, the tracker counts all hostnames (the prior behaviour), so a fork without the var is unaffected. A production deploy must set it, or own-traffic creeps back in.
 
 Chosen over a reverse-proxy strip (would need a Caddy content-rewrite to edit the inline loader — disproportionate) and a hand-rolled hostname check (reinvents what the tracker already does). Backfilling the handful of already-counted own-traffic rows is out of scope.

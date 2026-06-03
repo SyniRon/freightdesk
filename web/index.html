@@ -22,10 +22,19 @@
         s.dataset.hostUrl = "/umami";
         s.src = "/umami/script.js";
         // Own-traffic filter: when set, the tracker only sends events whose
-        // hostname is in this allowlist, keeping operator/dev sessions on
-        // non-public hostnames out of the rollups. Unset = track all hosts.
+        // hostname exactly matches an entry in this comma-separated allowlist,
+        // keeping operator/dev sessions on non-public hostnames out of the
+        // rollups. Unset = track all hosts. Trim/lowercase so a stray space or
+        // capital in the env value doesn't silently drop a host (browser
+        // hostnames are always lowercase).
         const domains = import.meta.env.VITE_UMAMI_DOMAINS;
-        if (domains) s.dataset.domains = domains;
+        if (domains) {
+          s.dataset.domains = domains
+            .split(",")
+            .map((d) => d.trim().toLowerCase())
+            .filter(Boolean)
+            .join(",");
+        }
         document.head.appendChild(s);
       }
     </script>
