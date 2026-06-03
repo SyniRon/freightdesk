@@ -26,7 +26,22 @@ export function CustomServiceCard({
   recipientOptions,
 }: CustomServiceCardProps) {
   const rateNum = parseShorthand(rate);
-  const priced = !!quote && rateNum != null;
+  // A quote prices the route only when it produces a positive reward. A zero
+  // reward means empty/zero-volume cargo (e.g. only unrecognized item names
+  // pasted: totalVol === 0 → reward = 0 × rate), which must NOT read as a
+  // confident "0 ISK" copyable quote (finding #1). Gate priced (and therefore
+  // copyability via selectedQuote) on reward > 0.
+  const hasRate = rateNum != null;
+  const priced = !!quote && hasRate && quote.reward > 0;
+  // Distinguish "no rate yet" from "rate set but nothing to price" so the note
+  // tells the user the right next step.
+  const zeroCargo = !!quote && hasRate && quote.reward <= 0;
+  // A collateral-% was entered but the cargo's collateral is unknown (0) — the
+  // `max` formula silently fell back to the rate leg, so the percent did
+  // nothing. Surface it rather than letting the user think they priced on
+  // collateral (finding #2).
+  const collPctNum = parseShorthand(collateralPct);
+  const collateralInert = !!quote && collPctNum != null && quote.collateral <= 0;
   return (
     <div className="service-card is-custom is-selected">
       <div className="svc-row-1">
@@ -89,7 +104,17 @@ export function CustomServiceCard({
 
       {!priced && (
         <div className="svc-coll-note">
-          <Warn /> Set a per-m³ rate to price this route.
+          <Warn />{" "}
+          {zeroCargo
+            ? "Paste cargo to price this route."
+            : "Set a per-m³ rate to price this route."}
+        </div>
+      )}
+
+      {collateralInert && (
+        <div className="svc-coll-note">
+          <Warn /> Collateral is unknown for this cargo — the collateral % is
+          inert and the route is priced on the rate alone.
         </div>
       )}
     </div>

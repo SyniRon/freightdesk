@@ -29,7 +29,7 @@ function catalogQuote(): Quote {
 }
 
 function customQuote(input = { ratePerM3: 800 }): Quote {
-  const svc = makeCustomService(input, jita, customDest);
+  const svc = makeCustomService(input, jita, customDest)!;
   return evaluateServices(parse, jita, customDest, false, {}, undefined, [svc])[0];
 }
 
@@ -91,7 +91,7 @@ describe("ContractCopy — custom service Recipient (ADR 0012)", () => {
     expect(screen.queryByText("Custom service")).toBeNull();
   });
 
-  it("fires a REDACTED conversion event on copy — service:'custom', custom:true, no typed dest/recipient", async () => {
+  it("fires a REDACTED conversion event on copy — service:'custom', custom:true, no route/dest/recipient", async () => {
     const track = vi.spyOn(analytics, "track");
     render(
       <ContractCopy
@@ -105,8 +105,27 @@ describe("ContractCopy — custom service Recipient (ADR 0012)", () => {
     await userEvent.click(screen.getByText("Reward").closest(".copy-row")!);
     expect(track).toHaveBeenCalledWith("copy", expect.objectContaining({ service: "custom", custom: true }));
     const call = track.mock.calls.find((c) => c[0] === "copy")!;
-    const props = JSON.stringify(call[1]);
-    expect(props).not.toContain("XX-XYZ");      // no typed destination
-    expect(props).not.toContain("SomeSecretCorp"); // no recipient string
+    // No `route` property at all — the redacted payload must never carry the
+    // origin->destination string for a custom route (finding #5).
+    expect(call[1]).not.toHaveProperty("route");
+    // Case-insensitive: the typed destination's lowercased id must be absent.
+    const props = JSON.stringify(call[1]).toLowerCase();
+    expect(props).not.toContain(customDest.id.toLowerCase()); // "custom:xx-xyz"
+    expect(props).not.toContain("xx-xyz");                    // typed destination, any case
+    expect(props).not.toContain("somesecretcorp");            // recipient string
+  });
+
+  it("ceils a fractional custom reward in the Reward row (kumgo parity — finding #3)", () => {
+    // rate 0.011 × 10 m³ = 0.11 ISK raw → must render Math.ceil = 1.
+    const fractionalParse: ParseResult = {
+      matched: [], unmatched: [], totalVol: 10, totalValue: 0, collateral: 0,
+    };
+    const svc = makeCustomService({ ratePerM3: 0.011 }, jita, customDest)!;
+    const q = evaluateServices(fractionalParse, jita, customDest, false, {}, undefined, [svc])[0];
+    expect(q.reward).toBeCloseTo(0.11, 5);   // raw reward is fractional
+    render(<ContractCopy quote={q} origin={jita} dest={customDest} warnings={noWarnings} recipient="" />);
+    const reward = screen.getByText("Reward").closest(".copy-row") as HTMLElement;
+    expect(within(reward).getByText("1")).toBeInTheDocument();      // ceil(0.11) = 1
+    expect(within(reward).queryByText("0")).toBeNull();             // never the floor/0
   });
 });

@@ -11,7 +11,7 @@ import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import { loadLocations, type LocationIndex } from "./lib/locations";
 import {
   catalogCorpNames,
-  CUSTOM_SERVICE_ID,
+  isCustomQuote,
   evaluateServices,
   isNoRouteMatch,
   makeCustomService,
@@ -36,6 +36,10 @@ import { ServicePicker } from "./components/ServicePicker";
 import { CustomServiceCard } from "./components/CustomServiceCard";
 import { OverridesChip } from "./components/OverridesChip";
 import { SettingsDrawer, type AppSettings } from "./components/SettingsDrawer";
+
+// Catalog corp names are derived from the build-frozen SERVICES table, so they
+// never change at runtime — compute once at module load rather than per render.
+const CATALOG_CORP_NAMES = catalogCorpNames();
 
 const DEFAULT_SETTINGS: AppSettings = {
   priceSource: "sell",
@@ -226,11 +230,18 @@ export default function App() {
       origin,
       dest,
     );
+    if (!svc) return undefined;
     return evaluateServices(pricedParse, origin, dest, false, {}, locIndex?.sdeIdToSlug, [svc])[0];
   }, [noRoute, customRateNum, customCollateralPct, origin, dest, pricedParse, locIndex]);
 
+  // A zero-reward custom quote (empty / zero-volume cargo, e.g. only unparsed
+  // item names pasted) is shown on the card with a "paste cargo" note but must
+  // NOT be copyable — so it never becomes the selectedQuote that feeds the copy
+  // block (finding #1). The card still receives the raw customQuote to render
+  // that note.
+  const copyableCustomQuote = customQuote && customQuote.reward > 0 ? customQuote : undefined;
   const selectedQuote =
-    (noRoute ? customQuote : undefined) ||
+    (noRoute ? copyableCustomQuote : undefined) ||
     quotes.find((q) => q.service.id === selectedSvc) ||
     quotes.find((q) => q.status === "eligible") ||
     quotes.find((q) => q.status === "splittable");
@@ -241,7 +252,7 @@ export default function App() {
     if (
       selectedQuote &&
       selectedQuote.service.id !== selectedSvc &&
-      selectedQuote.service.id !== CUSTOM_SERVICE_ID
+      !isCustomQuote(selectedQuote)
     ) {
       setSelectedSvc(selectedQuote.service.id);
     }
@@ -372,7 +383,7 @@ export default function App() {
                     setCollateralPct={setCustomCollateralPct}
                     recipient={customRecipient}
                     setRecipient={setCustomRecipient}
-                    recipientOptions={catalogCorpNames()}
+                    recipientOptions={CATALOG_CORP_NAMES}
                   />
                 }
               />

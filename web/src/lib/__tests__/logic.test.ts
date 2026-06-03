@@ -12,6 +12,8 @@ import {
   makeCustomService,
   catalogCorpNames,
   isNoRouteMatch,
+  isCustomService,
+  isCustomQuote,
   CUSTOM_SERVICE_ID,
   recomputeWithPrices,
   canonicalEndpoint,
@@ -585,26 +587,26 @@ describe("makeCustomService (synthetic service for uncovered routes — ADR 0012
   const dest = LOCATIONS.find((l) => l.id === "jita44")!;
 
   it("builds a rate-only formula when only a rate is set", () => {
-    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
     expect(svc.routes).toHaveLength(1);
     expect(svc.routes[0].formula).toEqual({ kind: "rate-only", ratePerM3: 800 });
   });
 
   it("builds a max formula when a collateral-percent is also set", () => {
-    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest)!;
     // collateralPct is entered as a percent (0.5%) → stored as the 0.005 fraction.
     expect(svc.routes[0].formula).toEqual({ kind: "max", ratePerM3: 800, collateralPct: 0.005 });
   });
 
   it("uses the custom: id convention and carries no catalog collision", () => {
-    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
     expect(svc.id).toBe(CUSTOM_SERVICE_ID);
     expect(svc.id.startsWith("custom:")).toBe(true);
     expect(SERVICES.some((s) => s.id === svc.id)).toBe(false);
   });
 
   it("carries no caps and no minimum (always eligible, never splittable)", () => {
-    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest)!;
     expect(svc.maxVol).toBeUndefined();
     expect(svc.maxCollateral).toBeUndefined();
     expect(svc.minReward).toBeUndefined();
@@ -614,13 +616,13 @@ describe("makeCustomService (synthetic service for uncovered routes — ADR 0012
   });
 
   it("routes between the exact picked endpoints so the evaluator matches it", () => {
-    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
     expect(svc.routes[0].origin).toBe(origin.id);
     expect(svc.routes[0].destination).toBe(dest.id);
   });
 
   it("threads through evaluateServices to an eligible, never-splittable quote", () => {
-    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 999_999_999_999 };
     const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
     expect(q.status).toBe("eligible");
@@ -629,7 +631,7 @@ describe("makeCustomService (synthetic service for uncovered routes — ADR 0012
   });
 
   it("max formula: reward is max(vol×rate, collateral×pct)", () => {
-    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest);
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, origin, dest)!;
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10, totalValue: 0, collateral: 100_000_000_000 };
     const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
     expect(q.reward).toBe(Math.max(10 * 800, 100_000_000_000 * 0.005));
@@ -637,15 +639,49 @@ describe("makeCustomService (synthetic service for uncovered routes — ADR 0012
 
   it("the card rate, not the global override, is the synthetic service's source", () => {
     // App builds the synthetic quote by passing the card's own rate to
-    // makeCustomService and an EMPTY overrides object to evaluateServices, so
-    // the global rate override (settings.overrideRate) can never displace it.
-    // Mirror that call shape and assert the card rate wins regardless of any
-    // global override value a caller might still be carrying.
-    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest);
+    // makeCustomService. Even if a non-empty global rate override is threaded
+    // into evaluateServices, the custom card must ignore it: the reward uses
+    // the card's 800 (not the 5000 override) and `overridden.rate` stays false.
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
     const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
-    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    const [q] = evaluateServices(parse, origin, dest, false, { ratePerM3: 5000 }, undefined, [svc]);
     expect(q.reward).toBe(10_000 * 800);
     expect(q.overridden.rate).toBe(false);
+  });
+
+  it("returns undefined for a NaN/0/negative rate (mirrors the collateralPct guard)", () => {
+    expect(makeCustomService({ ratePerM3: NaN }, origin, dest)).toBeUndefined();
+    expect(makeCustomService({ ratePerM3: 0 }, origin, dest)).toBeUndefined();
+    expect(makeCustomService({ ratePerM3: -5 }, origin, dest)).toBeUndefined();
+  });
+
+  it("zero total volume yields a zero reward (not copyable — gated in the card)", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 0, totalValue: 0 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.reward).toBe(0);
+  });
+});
+
+describe("isCustomService / isCustomQuote (single custom-identity predicate — ADR 0012)", () => {
+  const origin = makeCustomLocation("XX-XYZ");
+  const dest = LOCATIONS.find((l) => l.id === "jita44")!;
+
+  it("isCustomService is true only for the synthetic service id", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
+    expect(isCustomService(svc)).toBe(true);
+    expect(isCustomService(SERVICES[0])).toBe(false);
+    expect(isCustomService(undefined)).toBe(false);
+  });
+
+  it("isCustomQuote keys off the quote's service id", () => {
+    const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(isCustomQuote(q)).toBe(true);
+    expect(isCustomQuote(undefined)).toBe(false);
+    const catalog = evaluateServices(parse, dest, origin)[0];
+    expect(isCustomQuote(catalog)).toBe(false);
   });
 });
 

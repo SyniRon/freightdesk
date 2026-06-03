@@ -18,7 +18,7 @@ const customDest = makeCustomLocation("XX-XYZ");
 const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
 
 function quote(input = { ratePerM3: 800 }): Quote {
-  const svc = makeCustomService(input, jita, customDest);
+  const svc = makeCustomService(input, jita, customDest)!;
   return evaluateServices(parse, jita, customDest, false, {}, undefined, [svc])[0];
 }
 
@@ -75,5 +75,47 @@ describe("CustomServiceCard", () => {
     const input = screen.getByLabelText(/Recipient/i) as HTMLInputElement;
     expect(input.value).toBe("");
     expect(input.placeholder).toMatch(/public|blank/i);
+  });
+
+  it("zero total volume + valid rate → NOT priced (em-dash reward, paste-cargo note)", () => {
+    // Reachable when only unrecognized item names are pasted: hasParse is true
+    // (unmatched lines) but totalVol === 0, so reward = 0 × rate = 0 ISK. A
+    // confident 0-ISK quote must not be copyable. (CRITICAL — finding #1)
+    const emptyParse: ParseResult = { matched: [], unmatched: [], totalVol: 0, totalValue: 0 };
+    const svc = makeCustomService({ ratePerM3: 800 }, jita, customDest)!;
+    const q = evaluateServices(emptyParse, jita, customDest, false, {}, undefined, [svc])[0];
+    expect(q.reward).toBe(0);
+    renderCard({ rate: "800", quote: q });
+    // Reward shows the em-dash, never "0 ISK".
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText(/0 ISK/)).toBeNull();
+    expect(screen.getByText(/paste cargo/i)).toBeInTheDocument();
+  });
+
+  it("collateral-% set but collateral unknown (0) → warns the percent is inert", () => {
+    // noPriceItems / zero-priced cargo means quote.collateral === 0, so the max
+    // formula silently falls back to the rate leg. Surface that. (finding #2)
+    const noPriceParse: ParseResult = {
+      matched: [{ key: "x", name: "X", qty: 1, vol: 10_000, price: 0, id: 1 }],
+      unmatched: [],
+      totalVol: 10_000,
+      totalValue: 0,
+      collateral: 0,
+    };
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, jita, customDest)!;
+    const q = evaluateServices(noPriceParse, jita, customDest, false, {}, undefined, [svc])[0];
+    expect(q.collateral).toBe(0);
+    renderCard({ rate: "800", collateralPct: "0.5", quote: q });
+    expect(screen.getByText(/collateral.*(unknown|can't|cannot|no.*price|inert|priced on the rate)/i)).toBeInTheDocument();
+  });
+
+  it("no inert-collateral warning when collateral is known", () => {
+    const parseWithColl: ParseResult = {
+      matched: [], unmatched: [], totalVol: 10, totalValue: 0, collateral: 100_000_000_000,
+    };
+    const svc = makeCustomService({ ratePerM3: 800, collateralPct: 0.5 }, jita, customDest)!;
+    const q = evaluateServices(parseWithColl, jita, customDest, false, {}, undefined, [svc])[0];
+    renderCard({ rate: "800", collateralPct: "0.5", quote: q });
+    expect(screen.queryByText(/collateral.*(unknown|inert)/i)).toBeNull();
   });
 });

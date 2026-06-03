@@ -413,22 +413,28 @@ export function evaluateServices(
       ? overrides.maxCollateral
       : (route?.maxCollateral ?? s.maxCollateral);
 
-    const formulaResult = route ? applyFormula(route.formula, vol, collateral, overrides.ratePerM3) : 0;
+    // The synthetic Custom service owns its rate card-locally (ADR 0012) and
+    // must never consume the global catalog-displacement rate override — that
+    // override has no owner on a route no catalog courier serves.
+    const rateOverrideForSvc = isCustomService(s) ? undefined : overrides.ratePerM3;
+    const formulaResult = route ? applyFormula(route.formula, vol, collateral, rateOverrideForSvc) : 0;
     const rushFee = route?.rushFee ?? 0;
     const rushApplied = !!route && rushEnabled && rushFee > 0;
     const rushAdded = rushApplied ? rushFee : 0;
     const reward = Math.max(minReward, formulaResult) + rushAdded;
     const flooredToMinimum = isFlooredToMinimum(
-      route?.formula, vol, formulaResult, minReward, overrides.ratePerM3,
+      route?.formula, vol, formulaResult, minReward, rateOverrideForSvc,
     );
 
     // A rate override only actually moves the reward for rate-bearing formulas;
-    // flag it overridden only when the active route can consume it.
-    const rateConsumed = rateOver && !!route && route.formula.kind !== "flat";
+    // flag it overridden only when the active route can consume it. The custom
+    // service never consumes the global override (rateOverrideForSvc is
+    // undefined there), so its rate is never flagged overridden.
+    const rateConsumed = isOverride(rateOverrideForSvc) && !!route && route.formula.kind !== "flat";
     const overridden = { collateral: collOver, vol: volOver, rate: rateConsumed };
     const marketRate = formulaRate(route?.formula);
     const market = { collateral: marketCollateral, vol: marketVol, ratePerM3: marketRate };
-    const ratePerM3 = rateConsumed ? overrides.ratePerM3! : marketRate;
+    const ratePerM3 = rateConsumed ? rateOverrideForSvc! : marketRate;
 
     // ─── Tri-state classification (ADR 0010) ───────────────────────────────
     // No route → ineligible.
@@ -521,12 +527,19 @@ export interface CustomServiceInput {
 // the formula multiplies against). Carries NO caps and NO minReward, so it is
 // always `eligible` and never `splittable`. Fed through evaluateServices like
 // any catalog service — never a parallel render path.
+//
+// Returns `undefined` for a non-positive / non-finite `ratePerM3` — a garbage
+// rate can't price a route, so there is no service to build. This mirrors the
+// `collateralPct` guard and pins the invariant inside the factory rather than
+// trusting every call site (the App call site already screens the rate, but the
+// factory now refuses to mint a service on bad input regardless).
 export function makeCustomService(
   input: CustomServiceInput,
   origin: Location,
   dest: Location,
-): Service {
+): Service | undefined {
   const { ratePerM3, collateralPct } = input;
+  if (!(isFinite(ratePerM3) && ratePerM3 > 0)) return undefined;
   const hasColl = typeof collateralPct === "number" && isFinite(collateralPct) && collateralPct > 0;
   const formula: RouteFormula = hasColl
     ? { kind: "max", ratePerM3, collateralPct: collateralPct! / 100 }
@@ -538,6 +551,17 @@ export function makeCustomService(
     routes: [{ origin: origin.id, destination: dest.id, formula }],
     updated: new Date().toISOString().slice(0, 10),
   };
+}
+
+// Single source of truth for "is this the synthetic Custom service" (ADR 0012),
+// keyed on CUSTOM_SERVICE_ID. Replaces the stringly-typed `=== CUSTOM_SERVICE_ID`
+// checks that were scattered across App / ContractCopy / evaluator gating.
+export function isCustomService(s: Service | undefined): boolean {
+  return s?.id === CUSTOM_SERVICE_ID;
+}
+
+export function isCustomQuote(q: Quote | undefined): boolean {
+  return isCustomService(q?.service);
 }
 
 // The custom-card trigger (ADR 0012): true only on the no-route-matched

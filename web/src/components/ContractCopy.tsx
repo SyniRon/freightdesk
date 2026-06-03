@@ -1,5 +1,5 @@
 import { useClipboard, type ToastState } from "../lib/useClipboard";
-import { CUSTOM_SERVICE_ID, fmtISKFull, type Location, type Quote } from "../lib/logic";
+import { isCustomQuote, fmtISKFull, type Location, type Quote } from "../lib/logic";
 import { track } from "../lib/analytics";
 import { Check, Copy, Warn } from "./icons";
 
@@ -63,7 +63,7 @@ interface ContractCopyProps {
 
 export function ContractCopy({ quote, origin, dest, warnings, recipient }: ContractCopyProps) {
   const [toast, copy] = useClipboard();
-  const isCustom = quote?.service.id === CUSTOM_SERVICE_ID;
+  const isCustom = isCustomQuote(quote);
   const trackedCopy = (value: string, label: string) => {
     copy(value, label);
     if (quote && quote.status === "eligible") {
