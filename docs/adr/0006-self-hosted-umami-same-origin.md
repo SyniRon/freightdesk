@@ -28,3 +28,11 @@ Conversion event: **`copy` with the field name** (Shipper / Destination / Reward
 - Ad-blocker coverage is dramatically lower because the tracking endpoint is same-origin. Closer-to-real visitor counts than a cloud-hosted tracker would yield for this audience.
 - The operator owns the analytics database. The trade-off is operational: another container to keep up, another Postgres to back up.
 - A separate maintenance gotcha exists around SPA route changes not being captured as pageviews — tracked as a separate open issue. The shape of the gotcha is downstream of this ADR, not a reason to revisit it.
+
+## Own-traffic filtering
+
+Sessions reaching the app off the public origin (operator/dev access over non-public hostnames) were registering in the rollups and skewing low-volume counts. Stock Umami (verified against the `umami:postgresql-latest` image, 2026-06) does **not** drop events by the website's configured domain — that field is metadata only; the server ingests every hostname. The native filter lives in the tracker, not the server.
+
+We gate with the tracker's **`data-domains` allowlist**: the script refuses to send events unless `window.location.hostname` exactly matches an entry in the list. The allowlist is supplied at build time via `VITE_UMAMI_DOMAINS` (same pattern as the website ID — operator config, not committed). When unset, the tracker counts all hostnames (the prior behaviour), so a fork without the var is unaffected. A production deploy must set it, or own-traffic creeps back in.
+
+Chosen over a reverse-proxy strip (would need a Caddy content-rewrite to edit the inline loader — disproportionate) and a hand-rolled hostname check (reinvents what the tracker already does). Backfilling the handful of already-counted own-traffic rows is out of scope.
