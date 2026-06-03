@@ -139,8 +139,10 @@ jobs:
       - name: Join tailnet (ephemeral tag:ci node)
         uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3.3.0
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          # Reusable + ephemeral auth key, tagged tag:ci. Keys expire (<=90d) so
+          # rotate periodically; an OAuth client (no expiry) is the swap-in
+          # alternative — set oauth-client-id/oauth-secret instead of authkey.
+          authkey: ${{ secrets.TS_AUTHKEY }}
           tags: tag:ci
 
       - name: Deploy over Tailscale SSH
