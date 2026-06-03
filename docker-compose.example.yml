@@ -7,6 +7,7 @@ services:
         VITE_UMAMI_DOMAINS: ${VITE_UMAMI_DOMAINS:-}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
         VITE_SENTRY_ENV: ${VITE_SENTRY_ENV:-production}
+        VITE_SENTRY_RELEASE: ${VITE_SENTRY_RELEASE:-}
     restart: unless-stopped
     # App is reached by cloudflared over the internal docker network at app:8080.
     # No host-port binding — public traffic comes in via the cloudflared tunnel.
@@ -23,7 +24,7 @@ services:
       - app
 
   # ─── Analytics ───────────────────────────────────────────────────────────
-  # Umami admin is bound to the Tailscale IP only (UMAMI_BIND in .env).
+  # Umami admin is bound to the private interface set in UMAMI_BIND (see .env).
   # Tracking script is served on the same domain via Caddy reverse-proxy below.
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
@@ -34,8 +35,8 @@ services:
       APP_SECRET: ${UMAMI_APP_SECRET}
       DISABLE_TELEMETRY: "1"
     ports:
-      # Admin UI: Tailscale-only. UMAMI_BIND defaults to 127.0.0.1 if unset
-      # (safe for local dev). On synicloud, set to the Tailscale interface IP.
+      # Admin UI: private-interface only. UMAMI_BIND defaults to 127.0.0.1 if
+      # unset (safe for local dev). On a VPN/tailnet host, set to that interface.
       - "${UMAMI_BIND:-127.0.0.1}:3000:3000"
     depends_on:
       umami-db:

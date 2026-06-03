@@ -14,6 +14,8 @@ ARG VITE_SENTRY_DSN
 ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
 ARG VITE_SENTRY_ENV
 ENV VITE_SENTRY_ENV=${VITE_SENTRY_ENV}
+ARG VITE_SENTRY_RELEASE
+ENV VITE_SENTRY_RELEASE=${VITE_SENTRY_RELEASE}
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
