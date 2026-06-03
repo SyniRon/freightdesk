@@ -1,0 +1,181 @@
+name: Release
+
+# Two entry points (see ADR 0013):
+#   - push a SemVer tag `vX.Y.Z`  → build + push GHCR image, then deploy.
+#   - workflow_dispatch(version)  → DEPLOY-ONLY: re-deploy / rollback to an
+#                                   already-built tag. No rebuild.
+# The git tag (or the dispatch `version` input) is the single source of truth
+# for the version — package.json's committed value is a 0.0.0 sentinel and is
+# overwritten ephemerally at build time, never committed back.
+#
+# No pull_request / pull_request_target trigger: untrusted PR code must never
+# run in the same workflow as the production deploy secrets.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing image tag to (re)deploy, e.g. 0.2.0 (no leading v)"
+        required: true
+        type: string
+
+# Default token is read-only. packages: write is granted narrowly, on the
+# build-and-push job only.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  # Resolve the version from whichever trigger fired, once, so downstream jobs
+  # share a single canonical string. Tag push: strip the leading `v`.
+  # Dispatch: take the input verbatim.
+  version:
+    name: resolve version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve version
+        id: resolve
+        # Inputs are passed via env, never interpolated into the script body,
+        # so a crafted tag/input can't break out into shell (injection-safe).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          # Strict allowlist: a leading alnum then SemVer-ish chars only. This
+          # is also what flows to the host SSH command, so keep it tight.
+          if ! printf '%s' "$version" | grep -Eq '^[0-9A-Za-z][0-9A-Za-z.+_-]*$'; then
+            echo "::error::invalid version string: '$version'"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $version"
+
+  # Build + push the GHCR image. Tag-push path ONLY — skipped on dispatch
+  # (dispatch re-deploys an image that already exists).
+  build-and-push:
+    name: build + push image
+    needs: version
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      # github.repository may contain uppercase (e.g. Owner/Repo); GHCR refs
+      # must be lowercase.
+      - name: Lowercase image ref
+        id: image
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # Inject the tag's version into the bundle's package.json ephemerally.
+      # Not committed back — purely so anything reading package.json at build
+      # time sees the real release version.
+      - name: Inject version into package.json
+        working-directory: web
+        run: npm pkg set version="${{ needs.version.outputs.version }}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.ref }}:${{ needs.version.outputs.version }}
+            ${{ steps.image.outputs.ref }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_UMAMI_WEBSITE_ID=${{ vars.VITE_UMAMI_WEBSITE_ID }}
+            VITE_UMAMI_DOMAINS=${{ vars.VITE_UMAMI_DOMAINS }}
+            VITE_SENTRY_DSN=${{ vars.VITE_SENTRY_DSN }}
+            VITE_SENTRY_ENV=${{ vars.VITE_SENTRY_ENV }}
+            VITE_SENTRY_RELEASE=${{ needs.version.outputs.version }}
+
+  # Deploy over Tailscale SSH to the host-owned prod compose.
+  # Runs on BOTH paths:
+  #   - tag push: needs build-and-push (must succeed first).
+  #   - dispatch: build-and-push is skipped; the always()-guarded `if` lets
+  #     deploy proceed as long as the build wasn't an actual failure.
+  # Secrets here are Environment-scoped to `production`, whose required
+  # reviewer is the human approval gate — do not bypass `environment:`.
+  deploy:
+    name: deploy to production
+    needs: [version, build-and-push]
+    if: >-
+      always() &&
+      needs.version.result == 'success' &&
+      (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Join tailnet (ephemeral tag:ci node)
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3.3.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy over Tailscale SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_COMMAND: ${{ secrets.DEPLOY_COMMAND }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          # The deploy logic + paths live on the host (operator-owned), kept
+          # off this public repo. We invoke a host-side command and pass the
+          # version; the host writes IMAGE_TAG into its .env and runs
+          # `docker compose pull app && docker compose up -d --no-deps app`,
+          # recreating ONLY the app service.
+          ssh -o StrictHostKeyChecking=accept-new \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${DEPLOY_COMMAND} ${VERSION}"
+
+      - name: Health check
+        env:
+          HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
+        run: |
+          # Best-effort post-deploy probe. Skipped if no URL is configured.
+          if [ -z "${HEALTH_URL}" ]; then
+            echo "DEPLOY_HEALTH_URL not set — skipping health check."
+            exit 0
+          fi
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${HEALTH_URL}" || true)
+            echo "attempt $i: HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              echo "Health check passed."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::health check did not return 200"
+          exit 1

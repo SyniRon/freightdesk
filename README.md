@@ -38,18 +38,39 @@ workflow.
 
 ## Deploy
 
-`Dockerfile` is multi-stage (Node SDE/ESI build → Caddy static serve, listens
-on `:8080`). `docker-compose.yml` includes the app, an Umami + Postgres
-analytics sidecar, and a `cloudflared` service for exposing the app via
-Cloudflare Tunnel. The app is `expose`-only (no host port) and reached over
-the internal network — public traffic comes in through the tunnel. The image
-build runs the SDE + ESI pipeline inside the container (~5 minute first build).
+`Dockerfile` is multi-stage: a Node builder runs the SDE + ESI pipeline and
+produces the static bundle; Caddy serves it on `:8080`. The first build is slow
+(the SDE + ESI pipeline runs inside the image), fast and cached thereafter. The
+app is `expose`-only (no host port) — public traffic enters through the
+cloudflared tunnel over the internal Docker network.
 
-Copy `.env.example` to `.env`, fill in the secrets, then `docker compose up
--d --build`. To publish through the included tunnel, set `TUNNEL_TOKEN`. To
-front it yourself instead, drop the `cloudflared` service and either map a
-host port on `app` (`ports: ["8080:8080"]`) or attach your own reverse proxy
-to the app's network.
+### Local / fork stack
+
+`docker-compose.example.yml` is the all-in-one reference stack: the app, a
+`cloudflared` tunnel service, and a bundled Umami + Postgres analytics sidecar.
+Because `docker compose` auto-discovers `docker-compose.yml` / `compose.yml`,
+copy the file first:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml   # gitignored locally
+cp .env.example .env                               # fill in secrets
+docker compose up -d --build
+```
+
+Or run directly without copying: `docker compose -f docker-compose.example.yml up -d --build`.
+
+Set `TUNNEL_TOKEN` in `.env` to expose the app through the Cloudflare Tunnel.
+To front it yourself instead, drop the `cloudflared` service and either add a
+`ports: ["8080:8080"]` mapping on `app` or attach your own reverse proxy to the
+Docker network.
+
+### Production images (CI/CD)
+
+On a `v*` SemVer tag, GitHub Actions builds the Docker image and publishes it
+to GHCR. The production host runs its own compose file (not committed here —
+operator-specific wiring lives off-repo), which pulls the published image by
+tag and wires its own analytics. Rollback is re-deploying a prior image tag.
+This keeps all host-specific configuration out of the public repo.
 
 ## Analytics
 

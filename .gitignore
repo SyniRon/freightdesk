@@ -5,6 +5,9 @@ dist
 .vite
 .env
 .env.local
+# Forker's local copy of the example stack (not committed — see docker-compose.example.yml)
+docker-compose.yml
+compose.yml
 e2e/test-results
 e2e/playwright-report
 
