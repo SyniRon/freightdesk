@@ -1,7 +1,10 @@
 # ---- frontend build ----
 FROM node:26-alpine AS builder
 ENV CI=true
-RUN corepack enable
+# Node 25+ no longer bundles the corepack shim, so `corepack enable` fails on
+# node:26-alpine. Install pnpm directly, pinned to the major CI uses (pnpm 11,
+# lockfileVersion 9), so the image build matches CI.
+RUN npm install -g pnpm@11
 WORKDIR /app/web
 ARG VITE_UMAMI_WEBSITE_ID
 ENV VITE_UMAMI_WEBSITE_ID=${VITE_UMAMI_WEBSITE_ID}
