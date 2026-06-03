@@ -391,7 +391,6 @@ export function evaluateServices(
   // already been folded into parse.collateral upstream) — issue #15.
   const collOver = isOverride(overrides.collateral);
   const volOver = isOverride(overrides.vol);
-  const rateOver = isOverride(overrides.ratePerM3);
   return services.map((s): Quote => {
     const route = s.routes.find(
       (r) =>
@@ -562,6 +561,16 @@ export function isCustomService(s: Service | undefined): boolean {
 
 export function isCustomQuote(q: Quote | undefined): boolean {
   return isCustomService(q?.service);
+}
+
+// The copyable custom quote (App finding #1): a custom quote is only the
+// selectable/copyable quote when it actually prices something. A zero-reward
+// custom quote (empty / zero-volume cargo — e.g. only unparsed item names
+// pasted) is still rendered on the card with a "paste cargo" note, but must
+// never feed the copy block. Returns the quote when copyable, otherwise
+// undefined.
+export function selectCopyableQuote(q: Quote | undefined): Quote | undefined {
+  return q && q.reward > 0 ? q : undefined;
 }
 
 // The custom-card trigger (ADR 0012): true only on the no-route-matched

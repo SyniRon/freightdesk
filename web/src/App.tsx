@@ -19,6 +19,7 @@ import {
   parseShorthand,
   recomputeWithPrices,
   resolveLocation,
+  selectCopyableQuote,
   type Location,
 } from "./lib/logic";
 import { fetchPrices, priceFor, PricingError, type PriceSource } from "./lib/pricing";
@@ -239,7 +240,7 @@ export default function App() {
   // NOT be copyable — so it never becomes the selectedQuote that feeds the copy
   // block (finding #1). The card still receives the raw customQuote to render
   // that note.
-  const copyableCustomQuote = customQuote && customQuote.reward > 0 ? customQuote : undefined;
+  const copyableCustomQuote = selectCopyableQuote(customQuote);
   const selectedQuote =
     (noRoute ? copyableCustomQuote : undefined) ||
     quotes.find((q) => q.service.id === selectedSvc) ||

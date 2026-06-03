@@ -14,6 +14,7 @@ import {
   isNoRouteMatch,
   isCustomService,
   isCustomQuote,
+  selectCopyableQuote,
   CUSTOM_SERVICE_ID,
   recomputeWithPrices,
   canonicalEndpoint,
@@ -649,6 +650,32 @@ describe("makeCustomService (synthetic service for uncovered routes — ADR 0012
     expect(q.overridden.rate).toBe(false);
   });
 
+  it("a CATALOG rate-bearing service DOES consume the global rate override (gate is custom-specific)", () => {
+    // Positive control complementing the custom-card test above: the override
+    // gate is specific to the synthetic service. A real catalog service whose
+    // formula consumes a per-m³ rate must still honour `overrides.ratePerM3` —
+    // so a future refactor that disabled applyFormula's override consumption
+    // entirely would fail here. adfu-kum-n-go's jita44→cj6mt leg is a `rate-only`
+    // 700 ISK/m³ formula (minReward 5M, maxVol 350k).
+    const jita = LOCATIONS.find((l) => l.id === "jita44")!;
+    const cj6mt = LOCATIONS.find((l) => l.id === "cj6mt")!;
+    const catalog = SERVICES.find((s) => s.id === "adfu-kum-n-go")!;
+    // vol chosen so the rate (not minReward) sets the reward under both rates:
+    // 10_000 × 700 = 7M > 5M floor, and 10_000 × 1000 = 10M.
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
+
+    const [baseline] = evaluateServices(parse, jita, cj6mt, false, {}, undefined, [catalog]);
+    const [withOverride] = evaluateServices(
+      parse, jita, cj6mt, false, { ratePerM3: 1000 }, undefined, [catalog],
+    );
+
+    expect(baseline.reward).toBe(10_000 * 700);
+    expect(baseline.overridden.rate).toBe(false);
+    expect(withOverride.reward).toBe(10_000 * 1000);
+    expect(withOverride.reward).not.toBe(baseline.reward);
+    expect(withOverride.overridden.rate).toBe(true);
+  });
+
   it("returns undefined for a NaN/0/negative rate (mirrors the collateralPct guard)", () => {
     expect(makeCustomService({ ratePerM3: NaN }, origin, dest)).toBeUndefined();
     expect(makeCustomService({ ratePerM3: 0 }, origin, dest)).toBeUndefined();
@@ -682,6 +709,30 @@ describe("isCustomService / isCustomQuote (single custom-identity predicate — 
     expect(isCustomQuote(undefined)).toBe(false);
     const catalog = evaluateServices(parse, dest, origin)[0];
     expect(isCustomQuote(catalog)).toBe(false);
+  });
+});
+
+describe("selectCopyableQuote (zero-reward exclusion — App finding #1)", () => {
+  const origin = makeCustomLocation("XX-XYZ");
+  const dest = LOCATIONS.find((l) => l.id === "jita44")!;
+  const svc = makeCustomService({ ratePerM3: 800 }, origin, dest)!;
+
+  it("excludes a zero-reward custom quote (empty / zero-volume cargo)", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 0, totalValue: 0 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.reward).toBe(0);
+    expect(selectCopyableQuote(q)).toBeUndefined();
+  });
+
+  it("passes a positive-reward custom quote through unchanged", () => {
+    const parse: ParseResult = { matched: [], unmatched: [], totalVol: 10_000, totalValue: 0 };
+    const [q] = evaluateServices(parse, origin, dest, false, {}, undefined, [svc]);
+    expect(q.reward).toBeGreaterThan(0);
+    expect(selectCopyableQuote(q)).toBe(q);
+  });
+
+  it("excludes an absent quote", () => {
+    expect(selectCopyableQuote(undefined)).toBeUndefined();
   });
 });
 
