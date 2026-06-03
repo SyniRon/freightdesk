@@ -21,6 +21,11 @@
         s.dataset.websiteId = wid;
         s.dataset.hostUrl = "/umami";
         s.src = "/umami/script.js";
+        // Own-traffic filter: when set, the tracker only sends events whose
+        // hostname is in this allowlist, keeping operator/dev sessions on
+        // non-public hostnames out of the rollups. Unset = track all hosts.
+        const domains = import.meta.env.VITE_UMAMI_DOMAINS;
+        if (domains) s.dataset.domains = domains;
         document.head.appendChild(s);
       }
     </script>
