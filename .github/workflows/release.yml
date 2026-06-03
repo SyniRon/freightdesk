@@ -117,6 +117,13 @@ jobs:
             VITE_SENTRY_DSN=${{ vars.VITE_SENTRY_DSN }}
             VITE_SENTRY_ENV=${{ vars.VITE_SENTRY_ENV }}
             VITE_SENTRY_RELEASE=${{ needs.version.outputs.version }}
+            SENTRY_RELEASE_COMMIT=${{ github.sha }}
+          # Build-time only: the Vite plugin uploads source maps + creates the
+          # Sentry release/commits. Passed as a BuildKit secret so it never
+          # lands in a layer of the public GHCR image (see Dockerfile). Absent
+          # on the PR image-build (ci.yml) → plugin no-ops, build still passes.
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
   # Deploy over Tailscale SSH to the host-owned prod compose.
   # Runs on BOTH paths:
