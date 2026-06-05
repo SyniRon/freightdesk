@@ -1,5 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+// Fail any test on an uncaught page error — catches the "renders but throws"
+// class of regression (e.g. a bundler transform breaking a non-asserted path)
+// that visibility assertions alone would miss.
+const pageErrors: Error[] = [];
+test.beforeEach(({ page }) => {
+  pageErrors.length = 0;
+  page.on("pageerror", (error) => pageErrors.push(error));
+});
+test.afterEach(() => {
+  expect(pageErrors, "uncaught page errors").toEqual([]);
+});
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() =>

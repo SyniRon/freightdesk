@@ -53,7 +53,7 @@ Acknowledged gaps in the shipped MVP. Tracked as open issues but not committed t
 - **Hosting:** Cloudflare Tunnel (no public host ports), with a self-hosted Umami + Postgres analytics sidecar in the same compose stack. The Umami tracking script is reverse-proxied through Caddy so visitor browsers hit it on the app's own origin.
 - **Error tracking:** Sentry (`@sentry/react`) with a strict privacy posture — see [ADR 0007](docs/adr/0007-sentry-privacy-posture.md).
 - **Dependency hygiene:** Dependabot weekly with a 7-day cooldown.
-- **Tests:** Vitest unit (60 tests covering parser, eligibility, pricing, formatters, storage), Playwright e2e (3 tests against the prod build), CI runs both on every PR.
+- **Tests:** Vitest unit suite (parser, eligibility, pricing, formatters, storage, components), Playwright e2e smoke against the prod build, CI runs both on every PR.
 
 For *why* each of these is the way it is, see `docs/adr/`.
 
