@@ -10,6 +10,7 @@ docker-compose.yml
 compose.yml
 e2e/test-results
 e2e/playwright-report
+.playwright-mcp/
 
 # Local-only / Claude-assisted workflow notes
 .claude/
