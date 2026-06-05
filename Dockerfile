@@ -38,4 +38,14 @@ RUN --mount=type=secret,id=sentry_auth_token \
 FROM caddy:2-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=builder /app/web/dist /srv
+# Source maps must never ship (ADR 0014). When a Sentry token is present, Vite
+# emits hidden maps and the plugin uploads then deletes them (see the builder
+# note above) — but nothing verifies that delete succeeded. If it silently
+# fails (or a toolchain change alters the behavior), maps would be served
+# publicly. Unconditional: runs on every build of this image regardless of
+# whether maps were emitted. `&&`/`||` routing makes a find error fail the
+# build too, rather than pass it vacuously.
+RUN maps="$(find -L /srv -name '*.map')" && [ -z "$maps" ] || \
+    { echo 'ERROR: source maps leaked into served assets (Sentry upload/delete likely failed):'; \
+      printf '%s\n' "$maps"; exit 1; }
 EXPOSE 8080
