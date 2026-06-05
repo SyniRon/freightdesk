@@ -11,12 +11,13 @@ import "@testing-library/jest-dom/vitest";
 // (jsdom or happy-dom) would otherwise provide on `window.localStorage`.
 // Net result: bare `localStorage` references throw inside tests.
 //
-// Ruled out (2026-05-22): upgrading to vitest 4.1.7, downgrading to
-// jsdom 25, and swapping to happy-dom 20 all reproduce the bug. There is
-// no toolchain-version fix; the polyfill stays until either vitest's
-// populateGlobal learns to skip undefined source values or Node removes
-// the experimental built-in. Production browsers are unaffected — the real
-// `window.localStorage` is provided by the user agent, not by this file.
+// Ruled out (2026-05-22): vitest 4.1.7 (now the installed major), jsdom 25,
+// and happy-dom 20 all reproduce the bug. There is no toolchain-version fix.
+// Re-checked (2026-06-05, vitest 4.1.8): the bug is node-version-dependent —
+// the suite passes without this polyfill on Node 24.16 but fails on Node 26
+// (CI), so the polyfill stays until it reproduces on no supported runtime.
+// Production browsers are unaffected — the real `window.localStorage` is
+// provided by the user agent, not by this file.
 class MemoryStorage {
   private store = new Map<string, string>();
   get length() { return this.store.size; }
