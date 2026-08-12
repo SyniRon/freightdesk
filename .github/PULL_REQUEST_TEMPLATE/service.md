@@ -28,6 +28,7 @@ reviewer must be able to confirm the rates against this source.
 - [ ] `origin` / `destination` use valid location keys (added any new location to `web/src/lib/logic.ts` in this PR).
 - [ ] Contract metadata block (`expiration`, `daysToComplete`) filled in where the service uses one.
 - [ ] Rates match the linked source above.
+- [ ] `ratesVerified` is the date you checked these rates against that source (a check that finds nothing changed still counts).
 - [ ] `pnpm build:services` passes locally (validates the YAML).
 - [ ] `pnpm test` passes locally.
 - [ ] Verified the service card renders and quotes correctly in `pnpm dev`.

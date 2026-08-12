@@ -30,6 +30,7 @@ A service file is a single YAML document with these fields (mirrors the
 | `id`            | string   | yes      | Stable slug, matches the filename. Used internally as the key.        |
 | `name`          | string   | yes      | Display name on the service card.                                     |
 | `tagline`       | string   | no       | Short subtitle. Defaults to empty.                                    |
+| `ratesVerified` | date     | yes      | `YYYY-MM-DD` — when these rates were last checked against the shipper's published rate card. |
 | `minReward`     | number   | no       | Service-level floor on reward, in ISK.                                |
 | `maxVol`        | number   | no       | Service-level volume cap, in m³.                                      |
 | `maxCollateral` | number   | no       | Service-level collateral cap, in ISK. Omit for no cap.                |
@@ -40,9 +41,12 @@ Service-level `minReward` / `maxVol` / `maxCollateral` apply to every route. A
 route may also carry its own `minReward` / `maxVol` / `maxCollateral`, which
 override the service-level value for that route.
 
-> **Note:** `updated` (the "rates last updated" date shown on each card) is
-> **not** set in the YAML — it's derived automatically from `git log` at build
-> time. Don't add it by hand.
+> **Note:** `ratesVerified` is the "Rates verified" date shown on each card, and
+> a card whose date is more than 30 days old wears an amber `stale` tag. Set it
+> to the day you compared this config against the shipper's published rate card
+> — including a check that finds nothing changed, which is the whole point of
+> the field. The build rejects a missing date, a date that isn't a real calendar
+> date, and a date in the future (UTC), naming the file and the field.
 
 ### Route entry
 
@@ -171,6 +175,9 @@ reference):
 id: my-shipper
 name: My Shipping Service
 tagline: Internal alliance freight
+
+# When these rates were last checked against the shipper's published rate card.
+ratesVerified: 2026-08-12
 
 # Service-level defaults — apply to every route below.
 minReward: 5000000

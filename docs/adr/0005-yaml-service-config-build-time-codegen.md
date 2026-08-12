@@ -17,7 +17,7 @@ Three pressures make those choices wrong:
 Service config lives at `web/services/*.yaml`. One file per service. At build time, `scripts/build-services.ts` reads every file, validates the schema, and emits a single typed module `web/src/lib/services.generated.ts` with:
 
 - Each `Service` typed against the discriminated `RouteFormula` union — exhaustiveness is enforced at every call site.
-- An `updated` field per service derived from `git log -1 --format=%cs <yaml-path>`. That's the "rates last updated" surface in the UI.
+- An `updated` field per service derived from `git log -1 --format=%cs <yaml-path>`. That's the "rates last updated" surface in the UI. **Superseded by [ADR 0015](0015-declared-rates-verified-date.md):** the git lookup could not resolve inside the image build, so it always fell back to the build date and the staleness badge never fired in production. `updated` now comes from a declared `ratesVerified` field in the config.
 
 The TypeScript types (`Service`, `ServiceRoute`, `RouteFormula`) live in `web/src/lib/types.ts` and constrain both the YAML schema and the codegen output.
 
@@ -29,4 +29,4 @@ Adding shipper #2 is: drop a YAML in `web/services/`, run `pnpm build:services` 
 - The codegen step is a build prerequisite — the `services.generated.ts` file is gitignored. CI and local builds both regenerate it; a stale local copy is not a failure mode.
 - Schema changes (e.g., a new `RouteFormula` kind, a new constraint type) require updating both the YAML schema and the TypeScript types. Same commit, same review.
 - Validation runs at build time only. If a YAML is malformed, the build fails — a desirable outcome. Pairs naturally with a future YAML-validation CI step on PRs touching `services/*.yaml` (separate backlog item).
-- The 30-day-stale UI flag (amber `stale` tag) is computed from the same `updated` field. Staleness pressure is visible to users, so the maintenance burden is socially enforced.
+- The 30-day-stale UI flag (amber `stale` tag) is computed from the same `updated` field. Staleness pressure is visible to users, so the maintenance burden is socially enforced. (See [ADR 0015](0015-declared-rates-verified-date.md) for where that `updated` value comes from now — and for why it fired for nobody until then.)

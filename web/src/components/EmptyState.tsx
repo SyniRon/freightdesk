@@ -29,8 +29,8 @@ export function EmptyState({ onLoadExample }: EmptyStateProps) {
           the browser.
         </div>
         <div>
-          <Dot style={{ color: "var(--accent)" }} /> Open rates — each service shows when its
-          formula was last edited.
+          <Dot style={{ color: "var(--accent)" }} /> Open rates — each service shows when they were
+          last verified against the shipper's rate card.
         </div>
       </div>
     </section>

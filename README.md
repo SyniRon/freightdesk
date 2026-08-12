@@ -30,7 +30,10 @@ pnpm test:e2e      # playwright against the prod build
 
 Shipping services are one YAML file per service under `web/services/`. Drop a
 file in, run `pnpm build:services` (which validates it and regenerates
-`src/lib/services.generated.ts`), and open a PR.
+`src/lib/services.generated.ts`), and open a PR. Every config declares
+`ratesVerified` — the `YYYY-MM-DD` date its rates were last checked against the
+shipper's published rate card — and the build rejects a config without a real,
+non-future one.
 
 See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full schema, all five
 formula kinds with examples, the service-level fields, and the local-test
@@ -95,8 +98,9 @@ copy clicked with field name).
 ## Contributing
 
 Rate cards and routes live in `web/services/*.yaml`. PRs welcome — see
-**[CONTRIBUTING.md](./CONTRIBUTING.md)** for how to add or update a service. The
-`updated` field is auto-derived from `git log` at build time.
+**[CONTRIBUTING.md](./CONTRIBUTING.md)** for how to add or update a service.
+Re-checking a rate card counts as a contribution even when nothing changed —
+bump that service's `ratesVerified` date.
 
 ## License
 

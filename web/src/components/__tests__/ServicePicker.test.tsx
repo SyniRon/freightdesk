@@ -94,6 +94,34 @@ describe("ServicePicker override annotations", () => {
   });
 });
 
+describe("ServicePicker rate-freshness badge", () => {
+  // Dates are computed relative to now, never written as literals: a literal
+  // would quietly age past the threshold and redden this file on the calendar
+  // rather than on a code change.
+  function verifiedDaysAgo(id: string, days: number): Quote[] {
+    const updated = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+    return quotesFor().map((q) =>
+      q.service.id === id ? { ...q, service: { ...q.service, updated } } : q,
+    );
+  }
+
+  // The freshness cell of one specific card — sibling cards carry their own
+  // dates and must not be able to satisfy or break either assertion.
+  function freshnessCell(card: HTMLElement): HTMLElement {
+    return within(card).getByText("Rates verified").closest(".svc-cell") as HTMLElement;
+  }
+
+  it("tags a service verified well over the threshold ago as stale", () => {
+    renderPicker(verifiedDaysAgo("adfu-kum-n-go", 45));
+    expect(within(freshnessCell(firstCard())).getByText("stale")).toBeInTheDocument();
+  });
+
+  it("leaves a service verified today untagged", () => {
+    renderPicker(verifiedDaysAgo("adfu-kum-n-go", 0));
+    expect(within(freshnessCell(firstCard())).queryByText("stale")).toBeNull();
+  });
+});
+
 describe("ServicePicker custom-card trigger (ADR 0012)", () => {
   const MARKER = <div data-testid="custom-card-slot">CUSTOM CARD</div>;
 

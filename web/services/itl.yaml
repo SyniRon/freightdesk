@@ -2,6 +2,10 @@ id: itl
 name: Imperial Transcontinental Logistics
 tagline: Full-load alliance freight
 
+# Date these rates were last checked against the shipper's published rate card.
+# Bump it on every check, including one that finds nothing changed.
+ratesVerified: 2026-08-12
+
 # Service-level defaults
 minReward: 5000000
 maxVol: 350000

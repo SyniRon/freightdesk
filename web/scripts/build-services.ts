@@ -1,112 +1,17 @@
 #!/usr/bin/env tsx
-// Reads web/services/*.yaml, validates against the Service schema, captures
-// the most recent git commit timestamp per file, and emits a typed
-// SERVICES literal at web/src/lib/services.generated.ts.
+// Reads web/services/*.yaml, validates against the Service schema, and emits a
+// typed SERVICES literal at web/src/lib/services.generated.ts. Every value in
+// the output comes from the config files, so the result is identical whether
+// the build runs on a laptop, in CI, or inside the image (ADR 0015).
 
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { Service, ServiceRoute, RouteFormula, ServiceContractMeta } from "../src/lib/types";
+import { validateService } from "./lib/validate-service";
+import type { Service } from "../src/lib/types";
 
 const SERVICES_DIR = path.join(import.meta.dirname, "..", "services");
 const OUT_PATH = path.join(import.meta.dirname, "..", "src", "lib", "services.generated.ts");
-
-function gitFileDate(absPath: string): string {
-  // execFileSync with args array — no shell, no injection surface.
-  try {
-    const out = execFileSync("git", ["log", "-1", "--format=%cs", "--", absPath], { encoding: "utf8" }).trim();
-    if (out) return out;
-  } catch {
-    /* not in a repo, or file untracked */
-  }
-  return new Date().toISOString().slice(0, 10);
-}
-
-function validateFormula(f: any, where: string): RouteFormula {
-  if (!f || typeof f !== "object" || typeof f.kind !== "string") {
-    throw new Error(`${where}: formula must be an object with .kind`);
-  }
-  switch (f.kind) {
-    case "sum":
-    case "max":
-      if (typeof f.ratePerM3 !== "number" || typeof f.collateralPct !== "number")
-        throw new Error(`${where}: ${f.kind} formula needs ratePerM3 + collateralPct numbers`);
-      return { kind: f.kind, ratePerM3: f.ratePerM3, collateralPct: f.collateralPct };
-    case "rate-only":
-      if (typeof f.ratePerM3 !== "number")
-        throw new Error(`${where}: rate-only formula needs ratePerM3 number`);
-      return { kind: "rate-only", ratePerM3: f.ratePerM3 };
-    case "flat":
-      if (typeof f.reward !== "number")
-        throw new Error(`${where}: flat formula needs reward number`);
-      return { kind: "flat", reward: f.reward };
-    case "clamped-rate":
-      if (typeof f.ratePerM3 !== "number" || typeof f.floor !== "number" || typeof f.fullLoad !== "number")
-        throw new Error(`${where}: clamped-rate formula needs ratePerM3 + floor + fullLoad numbers`);
-      if (f.collateralPct != null && typeof f.collateralPct !== "number")
-        throw new Error(`${where}: clamped-rate collateralPct must be a number when present`);
-      return {
-        kind: "clamped-rate",
-        ratePerM3: f.ratePerM3,
-        floor: f.floor,
-        fullLoad: f.fullLoad,
-        ...(f.collateralPct != null ? { collateralPct: f.collateralPct } : {}),
-      };
-    default:
-      throw new Error(`${where}: unknown formula kind "${f.kind}"`);
-  }
-}
-
-function validateRoute(r: any, where: string): ServiceRoute {
-  if (!r || typeof r !== "object")        throw new Error(`${where}: route must be an object`);
-  if (typeof r.origin !== "string")        throw new Error(`${where}: origin must be string`);
-  if (typeof r.destination !== "string")   throw new Error(`${where}: destination must be string`);
-  const formula = validateFormula(r.formula, `${where}.formula`);
-  const optNum = (k: string) => {
-    if (r[k] == null) return undefined;
-    if (typeof r[k] !== "number") throw new Error(`${where}: ${k} must be number`);
-    return r[k];
-  };
-  return { origin: r.origin, destination: r.destination, formula,
-           rushFee: optNum("rushFee"), minReward: optNum("minReward"),
-           maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral") };
-}
-
-function validateContractMeta(c: any, where: string): ServiceContractMeta | undefined {
-  if (c == null) return undefined;
-  if (typeof c !== "object")                throw new Error(`${where}: contract must be an object`);
-  if (typeof c.expiration !== "string")     throw new Error(`${where}: contract.expiration must be string`);
-  if (typeof c.daysToComplete !== "string") throw new Error(`${where}: contract.daysToComplete must be string`);
-  if (c.descriptionHint != null && typeof c.descriptionHint !== "string")
-    throw new Error(`${where}: contract.descriptionHint must be string when present`);
-  if (c.source != null && typeof c.source !== "string")
-    throw new Error(`${where}: contract.source must be string when present`);
-  return {
-    expiration: c.expiration,
-    daysToComplete: c.daysToComplete,
-    ...(c.descriptionHint != null ? { descriptionHint: c.descriptionHint } : {}),
-    ...(c.source != null ? { source: c.source } : {}),
-  };
-}
-
-function validateService(s: any, where: string, updated: string): Service {
-  if (typeof s.id !== "string")    throw new Error(`${where}: id must be string`);
-  if (typeof s.name !== "string")  throw new Error(`${where}: name must be string`);
-  if (!Array.isArray(s.routes))    throw new Error(`${where}: routes must be array`);
-  const optNum = (k: string) => {
-    if (s[k] == null) return undefined;
-    if (typeof s[k] !== "number") throw new Error(`${where}: ${k} must be number`);
-    return s[k];
-  };
-  return {
-    id: s.id, name: s.name, tagline: s.tagline ?? "",
-    minReward: optNum("minReward"), maxVol: optNum("maxVol"), maxCollateral: optNum("maxCollateral"),
-    routes: s.routes.map((r: any, i: number) => validateRoute(r, `${where}.routes[${i}]`)),
-    updated,
-    contract: validateContractMeta(s.contract, where),
-  };
-}
 
 async function main() {
   const files = (await readdir(SERVICES_DIR)).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml")).sort();
@@ -116,8 +21,7 @@ async function main() {
     const abs = path.join(SERVICES_DIR, f);
     const text = await readFile(abs, "utf8");
     const raw = parseYaml(text);
-    const updated = gitFileDate(abs);
-    services.push(validateService(raw, f, updated));
+    services.push(validateService(raw, f));
   }
   await mkdir(path.dirname(OUT_PATH), { recursive: true });
   const body = `// AUTO-GENERATED by scripts/build-services.ts — do not edit.
