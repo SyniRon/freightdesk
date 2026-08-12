@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Arrow, Caret, Check, Copy } from "./icons";
 import { track } from "../lib/analytics";
+import { STALE_AFTER_DAYS } from "../lib/logic";
 
 interface AboutFooterProps {
   open: boolean;
@@ -26,9 +27,10 @@ export function AboutFooter({ open, onToggle }: AboutFooterProps) {
             the type IDs are sent.
           </p>
           <p className="dim">
-            Service rates live in versioned config files. Each card shows the date the rate was
-            last edited (read from commit metadata). Couriers older than 30 days get a stale
-            warning.
+            Service rates live in versioned config files. Each card shows the date those rates
+            were last checked against the shipper's published rate card — a check that confirms
+            nothing changed still counts. Couriers unchecked for more than {STALE_AFTER_DAYS} days
+            get a stale warning.
           </p>
           <div className="foot-row">
             <a

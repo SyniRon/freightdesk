@@ -19,7 +19,7 @@ The product is the friction kill. Every existing shipping calculator (Red Frog, 
 - Additional shippers: Red Frog Freight, PushX Industries, a Goon alliance shipper. Schema already supports it — adding shipper #2 means dropping a YAML in `web/services/` and redeploying.
 - More routes per shipper.
 - Per-service constraint model: origin/destination allowlist, volume cap, collateral cap, max-jumps cap, optional ship-type restrictions. Ineligible services drop out of the picker.
-- Git-driven rate config with `rates last updated YYYY-MM-DD` surfaced prominently in the UI.
+- Rate config carrying a declared `rates verified YYYY-MM-DD` date, surfaced prominently in the UI.
 - Real analytics dashboards on the conversion event (contract-value copy click).
 
 ## Out of scope
@@ -46,7 +46,7 @@ Acknowledged gaps in the shipped MVP. Tracked as open issues but not committed t
 
 - **Frontend:** Vite + React + TypeScript, pnpm. Single-file CSS (`web/src/styles.css`, ~1030 lines) — no shadcn/ui, no CSS framework.
 - **Item database:** built from CCP's official SDE at image-build time via `scripts/build-sde.ts`, with ESI enrichment for the four categories whose `packagedVolume` is unreliable (modules, drones, subsystems, fighters) plus ships. Output is `web/public/items.json` (~25k items).
-- **Service config:** `web/services/*.yaml` → `scripts/build-services.ts` → typed `web/src/lib/services.generated.ts`. The `updated` field is auto-derived from `git log -1 --format=%cs` per file.
+- **Service config:** `web/services/*.yaml` → `scripts/build-services.ts` → typed `web/src/lib/services.generated.ts`. The `updated` field is each config's declared `ratesVerified` date; nothing in the generator consults git, so the output is identical on a laptop, in CI, and inside the image.
 - **Pricing:** Fuzzwork aggregates, browser-direct (CORS-verified `*`), 200-id chunking, 5-minute in-memory cache. Used only for collateral suggestion, not core volume math.
 - **Per-visitor settings:** `localStorage` (`eveship.*` keys). Includes a migration shim for older shapes.
 - **Serving:** Caddy static, multi-stage Dockerfile (Node build → Caddy serve on `:8080`).
@@ -61,7 +61,7 @@ For *why* each of these is the way it is, see `docs/adr/`.
 
 **MVP done (achieved 2026-05-16):** Live. Paste hangar → compute volume → click-to-copy contract values for one alliance shipper on one route pair. No auth.
 
-**v1 done (not yet):** Three+ shippers including at least one public service (Red Frog or PushX), per-service constraint model fully populated, git-driven rate config with prominent `rates last updated` UI affordance, conversion-event dashboards live. Structure mapping beyond hardcoded staging + Jita remains deferred.
+**v1 done (not yet):** Three+ shippers including at least one public service (Red Frog or PushX), per-service constraint model fully populated, rate config with a declared verification date and a prominent `rates verified` UI affordance, conversion-event dashboards live. Structure mapping beyond hardcoded staging + Jita remains deferred.
 
 ## Domain language
 

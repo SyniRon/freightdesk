@@ -336,6 +336,10 @@ export function canonicalEndpoint(key: string, idToSlug?: Map<number, string>): 
   return key;
 }
 
+// A service whose rates were last checked against the shipper's published rate
+// card longer ago than this wears the amber `stale` tag (ADR 0015).
+export const STALE_AFTER_DAYS = 30;
+
 export function daysSince(iso: string): number {
   const d = (Date.now() - new Date(iso).getTime()) / 86400000;
   return Math.floor(d);

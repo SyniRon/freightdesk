@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { daysSince, fmtISK, fmtISKFull, fmtVol, isNoRouteMatch, type Quote } from "../lib/logic";
+import { daysSince, fmtISK, fmtISKFull, fmtVol, isNoRouteMatch, STALE_AFTER_DAYS, type Quote } from "../lib/logic";
 import { Caret, Warn } from "./icons";
 
 // Inline "override" tag for a card line whose value comes from a direct
@@ -32,7 +32,7 @@ interface ServiceCardProps {
 
 function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: ServiceCardProps) {
   const [showCalc, setShowCalc] = useState(false);
-  const stale = daysSince(q.service.updated) > 30;
+  const stale = daysSince(q.service.updated) > STALE_AFTER_DAYS;
   const shown = q.status !== "ineligible";
   const splittable = q.status === "splittable";
   return (
@@ -111,7 +111,7 @@ function ServiceCard({ q, selected, onSelect, rushEnabled, setRushEnabled }: Ser
           </span>
         </div>
         <div className="svc-cell">
-          <span className="svc-k">Rates updated</span>
+          <span className="svc-k">Rates verified</span>
           <span className={"svc-v mono " + (stale ? "is-stale" : "")}>
             {q.service.updated}
             {stale && <span className="stale-tag"> stale</span>}

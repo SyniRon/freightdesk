@@ -22,10 +22,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-        with:
-          # build-services.ts reads the last commit date per YAML file via
-          # `git log`; fetch full history so that lookup isn't shallow-blank.
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
