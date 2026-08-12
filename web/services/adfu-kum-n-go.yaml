@@ -31,3 +31,4 @@ contract:
   expiration: 1 week
   daysToComplete: 7 days
   descriptionHint: optional  # literal value shown to user — meaning EVE's description field can be left blank
+  source: https://kumgo.space/  # published rate card / calculator this config mirrors
