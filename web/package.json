@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@sentry/vite-plugin": "^5.4.0",
-    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/adm-zip": "^0.5.8",
