@@ -8,6 +8,13 @@
 #
 # This is the first-implementation reference config for the syniron
 # rollout (cavbot2 + 7 others copy this shape).
+#
+# Minor + patch updates are grouped per ecosystem: it keeps PR volume down,
+# and — more importantly here — it stops Dependabot splitting packages that
+# must move together. react and react-dom demand an exact version match, and
+# as separate PRs both halves fail CI. Majors stay ungrouped so they get
+# scrutinized individually; `dependabot-auto-merge.yml` also keys off that
+# split and never auto-merges a major.
 
 version: 2
 updates:
@@ -22,6 +29,26 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+
+  # Every action in .github/workflows/ is SHA-pinned, so nothing surfaces a
+  # stale pin on its own — this entry is the only thing watching them.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     open-pull-requests-limit: 5
 
   # Dockerfile base images (node:24-alpine, caddy:2-alpine).
@@ -31,6 +58,11 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    groups:
+      docker-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # docker-compose service image pins (postgres:16-alpine,
   # ghcr.io/umami-software/umami:postgresql-latest, cloudflare/cloudflared).
@@ -40,3 +72,8 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    groups:
+      compose-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
