@@ -17,7 +17,7 @@ Definitions for the vocabulary FreightDesk uses. Not scope (see `PROJECT.md`), n
 
 ## Product types
 
-- **Service.** A shipping operator (e.g., ADFU Kum N Go Transport Group). One YAML file per service in `web/services/`. Has a service-level `minReward`, `maxVol`, optional `maxCollateral`, a `contract` metadata block, and one or more `ServiceRoute`s.
+- **Service.** A shipping operator (e.g., ADFU Kum N Go Transport Group). One YAML file per service in `web/services/`. Carries an optional `minReward`, `maxVol` and `maxCollateral` — defaults its routes may each override — plus a `contract` metadata block and one or more `ServiceRoute`s.
 - **ServiceRoute.** A directed origin → destination pair owned by a Service. Carries a `RouteFormula` and an optional `rushFee`.
 - **RouteFormula.** A discriminated union describing how to compute the reward for a given route. Five kinds:
   - **`sum`** — `vol × ratePerM3 + collateral × collateralPct`

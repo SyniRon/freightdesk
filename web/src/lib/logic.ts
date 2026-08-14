@@ -99,16 +99,17 @@ export interface Quote {
   };
 }
 
-// Direct user overrides for the three market-derived inputs. Each is optional;
-// a present, finite, positive value wins over the market-derived value. Set by
-// the settings drawer, applied in evaluateServices. See issue #15.
+// Direct user overrides. Each is optional; a present, finite, positive value
+// wins over the value it displaces. Applied in evaluateServices. See issue #15.
+// The settings drawer sets the first three (the market-derived inputs) and no
+// more — maxCollateral has no drawer control.
 export interface QuoteOverrides {
   collateral?: number;    // contract collateral, ISK
   vol?: number;           // packaged volume, m³
   ratePerM3?: number;     // per-m³ shipping rate, ISK
-  maxCollateral?: number; // collateral cap override, ISK — lets the settings drawer
-                          // (and tests) exercise a hard collateral cap on services
-                          // that don't publish one. Falls through to route/service cap.
+  maxCollateral?: number; // collateral cap override, ISK — exercises a hard collateral
+                          // cap on services that don't publish one. No UI sets it; the
+                          // tests are its only caller. Falls through to route/service cap.
 }
 
 const isOverride = (n: number | undefined): n is number =>
@@ -407,9 +408,9 @@ export function evaluateServices(
     const collateral = collOver ? overrides.collateral! : marketCollateral;
     const reasons: string[] = [];
 
-    // Route-level overrides win, falling through to service-level. A
-    // maxCollateral override (issue #15-adjacent) lets the settings drawer
-    // impose a cap on services that publish none.
+    // Route-level values win, falling through to service-level. A maxCollateral
+    // override (issue #15-adjacent) outranks both, imposing a cap on services
+    // that publish none — no UI sets it, so today that is a test-only path.
     const minReward     = route?.minReward    ?? s.minReward    ?? 0;
     const maxVol        = route?.maxVol       ?? s.maxVol;
     const maxCollateral = isOverride(overrides.maxCollateral)
