@@ -16,6 +16,7 @@ describe("volumeBucket", () => {
 describe("valueBucket", () => {
   it("classifies common values", () => {
     expect(valueBucket(0)).toBe("0");
+    expect(valueBucket(null)).toBe("unpriced");
     expect(valueBucket(50_000_000)).toBe("<100M");
     expect(valueBucket(500_000_000)).toBe("100M-1B");
     expect(valueBucket(5_000_000_000)).toBe("1B-10B");

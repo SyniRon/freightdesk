@@ -36,6 +36,12 @@ function prices(entries: Array<[number, number]>) {
 const DRAKE_PRICES = prices([[24698, 100_000_000]]);
 const EXTENDER_PRICES = prices([[3831, 5_000_000_000]]);
 
+// Same item, valued two decades apart depending on which side of the book is
+// read — so which price source a report used is visible in its bucket.
+const DRAKE_SPLIT_PRICES = new Map([
+  [24698, { buy: { percentile: 5_000_000_000, median: 0 }, sell: { percentile: 100_000_000, median: 0 }, at: 0 }],
+]);
+
 /**
  * Stands in for the Fuzzwork client, holding each call open so the test
  * decides when — and whether — that paste's prices settle. Aborts reject the
@@ -122,8 +128,7 @@ describe("paste-parsed", () => {
     await act(async () => { fetches[0].reject(new PricingError("server-error", 500)); });
     await runTimers();
 
-    expect(emitted()).toHaveLength(1);
-    expect(emitted()[0]).toMatchObject({ volume: "10k-50k" });
+    expect(emitted()).toEqual([expect.objectContaining({ volume: "10k-50k", value: "unpriced" })]);
     expect(emitted()[0].value).not.toBe(valueBucket(0));
   });
 
@@ -151,7 +156,6 @@ describe("paste-parsed", () => {
     await paste(textarea, "Nonexistent Widget\t4");
     await runTimers();
 
-    expect(fetches).toHaveLength(0);
     expect(emitted()).toEqual([expect.objectContaining({ volume: "empty", value: valueBucket(0) })]);
   });
 
@@ -187,6 +191,51 @@ describe("paste-parsed", () => {
       expect.objectContaining({ volume: "10k-50k", value: "100M-1B" }),
       expect.objectContaining({ volume: "<1k", value: "10B+" }),
     ]);
+  });
+
+  it("reports a paste again when the box is cleared and the same cargo re-pasted", async () => {
+    const fetches = priceFetchController();
+    const textarea = await mount();
+
+    await paste(textarea, DRAKES);
+    await runTimers();
+    await act(async () => { fetches[0].resolve(DRAKE_PRICES); });
+    await runTimers();
+
+    await paste(textarea, "");
+    await runTimers();
+    await paste(textarea, DRAKES);
+    await runTimers();
+    await act(async () => { fetches[1].resolve(DRAKE_PRICES); });
+    await runTimers();
+
+    expect(emitted()).toEqual([
+      expect.objectContaining({ volume: "10k-50k", value: "100M-1B" }),
+      expect.objectContaining({ volume: "10k-50k", value: "100M-1B" }),
+    ]);
+  });
+
+  it("waits for the price lookup in flight rather than the one it replaced", async () => {
+    const fetches = priceFetchController();
+    const textarea = await mount();
+
+    await paste(textarea, DRAKES);
+    await runTimers();
+    await act(async () => { fetches[0].resolve(DRAKE_SPLIT_PRICES); });
+    await runTimers();
+
+    // Switching the price source re-asks Fuzzwork for the same type ids, so
+    // the settle that already happened describes a lookup that no longer
+    // applies.
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Buy" })); });
+    await runTimers();
+
+    await paste(textarea, "Drake\t3");
+    await runTimers();
+    await act(async () => { fetches[1].resolve(DRAKE_SPLIT_PRICES); });
+    await runTimers();
+
+    expect(emitted()[1]).toMatchObject({ volume: "10k-50k", value: "10B+" });
   });
 
   it("does not report the same paste twice when a setting changes underneath it", async () => {

@@ -57,14 +57,13 @@ export function volumeBucket(v: number): string {
 }
 
 /**
- * `value` for a paste whose price lookup never answered. Deliberately outside
- * the ISK buckets: a lookup that failed is not a paste worth nothing, and
- * reporting both as "0" made the two indistinguishable downstream.
+ * Bucket a value (ISK) into a coarse label. `null` means the price lookup
+ * never answered, which reports outside the ISK buckets: a lookup that failed
+ * is not a paste worth nothing, and reporting both as "0" made the two
+ * indistinguishable downstream.
  */
-export const VALUE_UNPRICED = "unpriced";
-
-/** Bucket a value (ISK) into a coarse label. */
-export function valueBucket(v: number): string {
+export function valueBucket(v: number | null): string {
+  if (v === null) return "unpriced";
   if (!v || v <= 0) return "0";
   if (v < 100_000_000) return "<100M";
   if (v < 1_000_000_000) return "100M-1B";
