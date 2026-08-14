@@ -58,6 +58,7 @@ All three flow through the same `parseHangarPaste` by splitting on `\t` and taki
 ## Conversion event
 
 - **Contract-value copy click.** The metric that matters. Pasting a hangar is engagement; copying a contract value is conversion. Pinned as the primary event in self-hosted Umami. Other instrumented events (paste-parsed with volume bucket, route changed, service selected, tip copied) are supporting signals. No PII, no item content — only metadata.
+- **`unpriced` value bucket.** `paste-parsed` carries a coarse ISK `value` alongside its volume bucket. `unpriced` means the Fuzzwork lookup for that paste never answered; `0` means the paste genuinely held nothing priceable. Keeping them apart is why the event waits for prices to settle instead of firing on a timer — a paste emits once, and `value` describes the cargo rather than the moment the text landed.
 
 ## Locations
 

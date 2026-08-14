@@ -56,6 +56,13 @@ export function volumeBucket(v: number): string {
   return "over-cap";
 }
 
+/**
+ * `value` for a paste whose price lookup never answered. Deliberately outside
+ * the ISK buckets: a lookup that failed is not a paste worth nothing, and
+ * reporting both as "0" made the two indistinguishable downstream.
+ */
+export const VALUE_UNPRICED = "unpriced";
+
 /** Bucket a value (ISK) into a coarse label. */
 export function valueBucket(v: number): string {
   if (!v || v <= 0) return "0";

@@ -5,8 +5,8 @@
 // baked in. The CSS data-density/data-layout attributes are kept on the
 // document element in case we surface a settings toggle later.
 
-import { useEffect, useMemo, useState } from "react";
-import { track, trackPageview, valueBucket, volumeBucket } from "./lib/analytics";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { track, trackPageview, valueBucket, volumeBucket, VALUE_UNPRICED } from "./lib/analytics";
 import { EXAMPLE_PASTE, loadItems, type ItemEntry } from "./lib/items";
 import { loadLocations, type LocationIndex } from "./lib/locations";
 import {
@@ -110,6 +110,9 @@ export default function App() {
   const [pricesByTypeId, setPricesByTypeId] = useState<Map<number, number>>(new Map());
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesError, setPricesError] = useState<"rate-limited" | "server-error" | "network" | null>(null);
+  // Which price request has finished, and how. Keyed on the type-id set so a
+  // superseded paste's result can never be read as the current paste's.
+  const [pricesSettledFor, setPricesSettledFor] = useState<{ key: string; ok: boolean } | null>(null);
 
   // load items DB on mount
   useEffect(() => {
@@ -150,6 +153,15 @@ export default function App() {
     [raw, items],
   );
 
+  // The type ids we can actually price, and a stable key for them. Both the
+  // fetch and the settle bookkeeping key off this one value, so the request
+  // that finishes is always matched against the request that was wanted.
+  const priceIds = useMemo(
+    () => parse.matched.map((m) => m.id).filter((id): id is number => typeof id === "number" && id > 0),
+    [parse],
+  );
+  const priceIdsKey = priceIds.join(",");
+
   // Fetch prices from Fuzzwork when matched ids or priceSource changes.
   useEffect(() => {
     if (!parse.matched.length) {
@@ -157,7 +169,7 @@ export default function App() {
       setPricesError(null);
       return;
     }
-    const ids = parse.matched.map((m) => m.id).filter((id): id is number => typeof id === "number" && id > 0);
+    const ids = priceIds;
     if (!ids.length) return;
 
     const controller = new AbortController();
@@ -174,10 +186,14 @@ export default function App() {
           const out = new Map<number, number>();
           for (const [id, p] of m) out.set(id, priceFor(p, src));
           setPricesByTypeId(out);
+          setPricesSettledFor({ key: priceIdsKey, ok: true });
         })
         .catch((e: unknown) => {
           if (cancelled) return;
           if ((e as { name?: string })?.name === "AbortError") return;
+          // Settled, badly — recorded for every failure shape, so an
+          // unrecognised one can't leave the paste event waiting forever.
+          setPricesSettledFor({ key: priceIdsKey, ok: false });
           if (e instanceof PricingError) {
             setPricesError(e.kind);
             // Skip rate-limited — 429 is an expected upstream state and the
@@ -200,7 +216,7 @@ export default function App() {
       controller.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parse.matched.map((m) => m.id).join(","), settings.priceSource]);
+  }, [priceIdsKey, settings.priceSource]);
   // Note: dep on stringified ids — using parse.matched directly would re-fire on every render since the array reference changes.
 
   const pricedParse = useMemo(
@@ -267,23 +283,44 @@ export default function App() {
 
   const hasParse = pricedParse.matched.length + pricedParse.unmatched.length > 0;
 
+  // Where this paste's prices have got to. Note this cannot be read off
+  // `pricesLoading`: that stays false for the whole debounce window before the
+  // request is even made, which would read as "settled" at the one moment the
+  // value is guaranteed to be missing (issue #91).
+  // "none" is a settled state, not a pending one: a paste with nothing
+  // priceable in it never fetches, so waiting on a settle would drop its
+  // event entirely rather than merely mis-report it.
+  const pricePhase: "none" | "pending" | "ready" | "failed" =
+    !priceIdsKey ? "none"
+    : pricesSettledFor?.key === priceIdsKey ? (pricesSettledFor.ok ? "ready" : "failed")
+    : "pending";
+
+  // The paste already reported this session, so a later re-render can't
+  // report it a second time.
+  const emittedFor = useRef<string | null>(null);
+
   // Analytics: fire once when the user finishes typing/pasting. Debounced
-  // so we don't spam events on every keystroke during paste streaming.
+  // so we don't spam events on every keystroke during paste streaming, and
+  // held until prices settle so `value` reports the cargo, not a zero.
   useEffect(() => {
     if (!hasParse) return;
+    if (pricePhase === "pending") return;
+    // One event per paste. Without this, anything that reshapes pricedParse
+    // afterwards — a settings change, a re-fetch — reports the same cargo
+    // again. The trade is that re-pasting identical text doesn't re-report.
+    if (emittedFor.current === raw) return;
     const t = setTimeout(() => {
+      emittedFor.current = raw;
       track("paste-parsed", {
         volume: volumeBucket(pricedParse.totalVol),
-        value: valueBucket(pricedParse.totalValue),
+        value: pricePhase === "failed" ? VALUE_UNPRICED : valueBucket(pricedParse.totalValue),
         matched: pricedParse.matched.length,
         unmatched: pricedParse.unmatched.length,
       });
     }, 600);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [raw, hasParse]);
-  // (We intentionally key only on raw — pricedParse changes when prices arrive
-  // but that's not a new paste event.)
+  }, [raw, hasParse, pricePhase, pricedParse]);
 
   // Analytics: fire on every route change. The custom event carries property
   // data for funnel analysis; the virtual pageview is what bounce-rate metrics
