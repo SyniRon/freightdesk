@@ -24,7 +24,7 @@ reviewer must be able to confirm the rates against this source.
 ## Checklist
 
 - [ ] One YAML file per service under `web/services/`, named after the `id`.
-- [ ] `formula.kind` is one of `sum` / `max` / `rate-only` / `flat` for every route.
+- [ ] `formula.kind` is one of the kinds in [CONTRIBUTING.md, "Formula kinds"](https://github.com/SyniRon/freightdesk/blob/main/CONTRIBUTING.md#formula-kinds) for every route.
 - [ ] `origin` / `destination` use valid location keys (added any new location to `web/src/lib/logic.ts` in this PR).
 - [ ] Contract metadata block (`expiration`, `daysToComplete`) filled in where the service uses one.
 - [ ] Rates match the linked source above.

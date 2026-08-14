@@ -56,7 +56,7 @@ Each entry in `routes` describes one direction (mirrors `ServiceRoute`):
 | --------------- | -------- | -------- | ---------------------------------------------------------------- |
 | `origin`        | string   | yes      | Location key for the pickup (see "Location keys" below).         |
 | `destination`   | string   | yes      | Location key for the drop-off.                                   |
-| `formula`       | object   | yes      | Reward formula — one of the four kinds below.                    |
+| `formula`       | object   | yes      | Reward formula — one of the kinds below.                         |
 | `rushFee`       | number   | no       | Flat ISK surcharge for a rush contract.                          |
 | `minReward`     | number   | no       | Route-level override of the service-level floor.                 |
 | `maxVol`        | number   | no       | Route-level override of the service-level volume cap.            |
