@@ -1,6 +1,6 @@
 # ADR 0011: Location search is build-time SDE extraction, not runtime ESI
 
-**Status:** Accepted (2026-05-29)
+**Status:** Accepted (2026-05-29). Amended 2026-08-14 — the reserved structure carve-out has been taken; see below.
 
 ## Context
 
@@ -94,3 +94,24 @@ ESI.**
 - Runtime ESI `/search` is justified only for player-built Upwell structures, which
   this decision does not attempt. Privacy surface stays at zero — no location query
   leaves the browser.
+
+## Amendment (2026-08-14)
+
+The carve-out reserved in the final consequence above has been taken by
+[ADR 0016](0016-additive-character-sign-in-for-accessible-structures.md): player-built structures are
+resolved at runtime through a signed-in capsuleer's own token. Two statements here are now narrower
+than they read.
+
+- **"Privacy surface stays at zero"** holds only for signed-out use, which remains the default and
+  covers every flow this decision describes. A signed-in capsuleer's structure queries do leave the
+  browser.
+- **Hand-pinning remains the mechanism for routed structures.** Search resolves a structure to a
+  listing string, but routes still key on slugs, and an alias may now pin an optional structure id so
+  a searched structure reconciles to the same slug its preset commits. The keyspace gains `str:<esiId>`
+  alongside `sta:<id>` for picked locations only — structure ids are deliberately *not* accepted in
+  service definitions, since enumerating them there is the same wall this decision put up against
+  set-based endpoints.
+
+The reconciliation guarantee is unchanged in intent and weaker in enforcement: a station alias fails
+the build on a bad name, whereas a structure id has no build-time source to check against and can only
+be asserted at development time.

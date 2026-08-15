@@ -1,6 +1,6 @@
 # ADR 0007: Sentry privacy posture — no PII, no Replay, scrubbed query strings, ancestor-walk masking
 
-**Status:** Accepted (2026-05-17)
+**Status:** Accepted (2026-05-17). Amended 2026-08-14 — see *Amendment: credentials in URLs*.
 
 ## Context
 
@@ -39,3 +39,44 @@ Error tracking is enabled. Privacy posture is strict and explicit.
 - Stack traces in production de-minify to real `*.tsx:line` via source-map upload through `@sentry/vite-plugin` (see [ADR 0014](0014-sentry-source-maps-and-release-commits.md)). Maps are uploaded then deleted at build time — never served publicly. (Originally deferred; implemented once errors needed to be actionable.)
 - This posture is appropriate where user content is operationally sensitive. Applications with looser privacy requirements should adopt individual patterns from this ADR (the ancestor-walk masking, the fetch-breadcrumb URL scrub) selectively rather than the whole bundle.
 - DevTools console `throw` does **not** trip Sentry's auto-handler (inspector-routed, bypasses `window.onerror`). For verification, use `setTimeout(() => { throw ... }, 0)` so the error bubbles through the event loop.
+
+## Amendment (2026-08-14): credentials in URLs
+
+The three channels above all concern one subject — hangar contents. Additive character sign-in
+([ADR 0016](0016-additive-character-sign-in-for-accessible-structures.md)) introduces a second
+subject with different mechanics: **short-lived credentials that arrive in a URL**, and **character
+identity that arrives in a request path**. The posture above does not cover either, in three specific
+places.
+
+1. **Navigation breadcrumbs are unscrubbed.** Layer 1 covers `ui.*` and layer 2 covers `fetch` /
+   `xhr`; `navigation` breadcrumbs pass through with both URLs intact. An OAuth callback carrying
+   `?code=` lands in one.
+2. **Query-stripping does not reach identity in a path.** Layer 2 truncates at `?`, which is the right
+   shape for Fuzzwork but not for ESI, where the character id sits in the path itself.
+3. **Analytics is outside all three layers.** The tracker is loaded from the HTML entry point and
+   auto-records a pageview before any application module resolves, so a callback URL would be written
+   to the analytics store, and no application-side cleanup can outrun it.
+
+**Decision.** The auth code is contained by construction rather than scrubbed after the fact:
+
+- Sign-in redirects to a **dedicated callback route**, and the analytics tracker is **not loaded on
+  that route** — gated in the HTML entry point, the only place early enough to matter. The callback is
+  transient and has no analytics value, so suppressing it costs nothing.
+- The code is removed from the address bar as soon as it is consumed, so no later capture can observe
+  it.
+- **A fourth scrubbing layer** treats `navigation` breadcrumbs the way layer 2 treats `fetch` / `xhr`.
+- ESI breadcrumb URLs are rewritten to a **route template**, so the endpoint and status survive for
+  debugging while the character id does not. Dropping these breadcrumbs entirely was rejected: this is
+  the integration most likely to break, and shape-without-identity keeps it diagnosable.
+- **Sentry is never told who the character is.** No `setUser`, no character name or id in context or
+  tags. Signed-in and signed-out events are indistinguishable.
+- `tracePropagationTargets: []` is retained and is now load-bearing for a second host — trace headers
+  must not reach CCP's API any more than they reach Fuzzwork's.
+
+PKCE makes an intercepted code useless without the verifier. That is real mitigation and it is not a
+reason to skip any of the above; a credential in a log is a defect whether or not it is redeemable.
+
+**The gate extends.** The verification described under *Consequences* is no longer complete with a
+hangar paste alone. It now also requires a full sign-in round trip, after which the auth code must
+appear in neither Sentry events nor the analytics store, and no event may carry a character id. Like
+the original gate, this is load-bearing: two of the three gaps above would have shipped silently.
