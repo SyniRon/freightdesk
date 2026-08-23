@@ -16,15 +16,15 @@
     "test:e2e": "cd ../e2e && pnpm exec playwright test"
   },
   "dependencies": {
-    "@sentry/react": "^10.69.0",
+    "@sentry/react": "^10.70.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@sentry/vite-plugin": "^5.4.0",
-    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.3",
+    "@testing-library/user-event": "^14.6.4",
     "@types/adm-zip": "^0.5.8",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
@@ -32,7 +32,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "adm-zip": "^0.6.0",
     "jsdom": "^30.0.1",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10",
