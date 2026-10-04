@@ -1,6 +1,6 @@
 # ADR 0007: Sentry privacy posture — no PII, no Replay, scrubbed query strings, ancestor-walk masking
 
-**Status:** Accepted (2026-05-17). Amended 2026-08-14 — see *Amendment: credentials in URLs*.
+**Status:** Accepted (2026-05-17). Amended 2026-08-14 — see *Amendment: credentials in URLs*. Amended 2026-10-04, see *Amendment: visitor location*.
 
 ## Context
 
@@ -80,3 +80,15 @@ reason to skip any of the above; a credential in a log is a defect whether or no
 hangar paste alone. It now also requires a full sign-in round trip, after which the auth code must
 appear in neither Sentry events nor the analytics store, and no event may carry a character id. Like
 the original gate, this is load-bearing: two of the three gaps above would have shipped silently.
+
+## Amendment (2026-10-04): visitor location
+
+Sentry's ingest works out [visitor location](../../GLOSSARY.md) from the request IP after the event
+leaves the browser. It does this whatever `infer_ip` says and with "Prevent Storing of IP Addresses"
+on, so probe events stored city and state ([#128](https://github.com/SyniRon/freightdesk/issues/128)).
+Stored visitor location now goes no finer than country in every kind of Sentry data, and storing none
+also meets the rule. Umami already answers which countries use FreightDesk, and at FreightDesk's
+traffic a state plus browser and OS can point at one person. A project-level Advanced Data Scrubbing
+rule, `[Remove] [Anything] from [$user.geo.**]`, drops the IP-derived part, and the browser does not
+send its time zone. The gate now also reads the stored location on a probe error event and a probe
+span, and fails on anything finer than country.
