@@ -65,4 +65,4 @@ For *why* each of these is the way it is, see `docs/adr/`.
 
 ## Domain language
 
-For terminology — Service / Route / RouteFormula / rush fee / minReward / Upwell structure / SDE / ESI / Fuzzwork / contract-value copy click — see `CONTEXT.md`.
+For terminology — Service / Route / RouteFormula / rush fee / minReward / Upwell structure / SDE / ESI / Fuzzwork / contract-value copy click — see `GLOSSARY.md`.

@@ -590,7 +590,7 @@ export function isNoRouteMatch(quotes: Quote[]): boolean {
 
 // The catalog services' exact corp-name strings, deduplicated — seeds the
 // Recipient combobox so a user can pick a known shipper (bridging catalog lag)
-// or free-type their own (ADR 0012, CONTEXT.md › Recipient).
+// or free-type their own (ADR 0012, GLOSSARY.md › Recipient).
 export function catalogCorpNames(): string[] {
   return Array.from(new Set(SERVICES.map((s) => s.name)));
 }

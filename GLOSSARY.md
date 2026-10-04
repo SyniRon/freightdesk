@@ -1,4 +1,4 @@
-# CONTEXT — domain language
+# GLOSSARY — domain language
 
 Definitions for the vocabulary FreightDesk uses. Not scope (see `PROJECT.md`), not decisions (see `docs/adr/`).
 
