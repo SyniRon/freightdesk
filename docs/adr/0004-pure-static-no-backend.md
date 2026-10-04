@@ -12,7 +12,7 @@ The cost of inheriting the backend anyway: a Go service to monitor, a longer con
 
 FreightDesk ships as a pure-static SPA served by Caddy. No Go backend exists in the repo and none is scaffolded.
 
-- The item database is built **at image-build time** by `scripts/build-sde.ts`: download CCP SDE → ESI-enrich the four broken-volume categories (see *ESI enrichment categories* in `CONTEXT.md`) → emit `web/public/items.json`. The result is a static asset shipped with the bundle.
+- The item database is built **at image-build time** by `scripts/build-sde.ts`: download CCP SDE → ESI-enrich the four broken-volume categories (see *ESI enrichment categories* in `GLOSSARY.md`) → emit `web/public/items.json`. The result is a static asset shipped with the bundle.
 - The service config is similarly precomputed at build time by `scripts/build-services.ts` (see [ADR 0005](0005-yaml-service-config-build-time-codegen.md)).
 - Fuzzwork pricing is fetched browser-direct. CORS is verified (`Access-Control-Allow-Origin: *`). A 5-minute in-memory cache lives in the browser tab.
 - Deployment is a multi-stage Dockerfile: Node builder runs the SDE+ESI pipeline, output is copied into a Caddy stage that serves the dist directory on port `:8080`. The image bakes in everything; runtime mounts are unnecessary.
