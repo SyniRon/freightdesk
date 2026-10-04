@@ -14,6 +14,14 @@ const SNAP_CHROMIUM = "/snap/bin/chromium";
 const useSnapChromium = process.platform === "linux" && existsSync(SNAP_CHROMIUM);
 const chromiumPath = process.env.E2E_CHROMIUM_PATH || (useSnapChromium ? SNAP_CHROMIUM : undefined);
 
+// The Sentry privacy suite (ADR 0007) needs a build with Sentry switched on,
+// so it gets its own production build with a placeholder DSN on a .invalid
+// host. The suite intercepts that host, so nothing leaves the machine. It
+// only runs against local builds: a deployed site carries the real DSN.
+const runSentrySuite = !process.env.E2E_BASE_URL;
+const SENTRY_SUITE = /sentry-privacy\.spec\.ts/;
+const SENTRY_SUITE_PORT = 4174;
+
 export default defineConfig({
   testDir: ".",
   fullyParallel: false,
@@ -24,13 +32,38 @@ export default defineConfig({
       ? { executablePath: chromiumPath, args: ["--no-sandbox", "--disable-setuid-sandbox"] }
       : {},
   },
-  projects: [{ name: "chromium", use: devices["Desktop Chrome"] }],
-  webServer: process.env.E2E_BASE_URL
-    ? undefined
-    : {
-        command: "cd ../web && pnpm preview --port 4173",
-        port: 4173,
-        reuseExistingServer: false,
-        timeout: 60_000,
-      },
+  projects: [
+    { name: "chromium", use: devices["Desktop Chrome"], testIgnore: SENTRY_SUITE },
+    ...(runSentrySuite
+      ? [
+          {
+            name: "sentry-privacy",
+            testMatch: SENTRY_SUITE,
+            use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${SENTRY_SUITE_PORT}` },
+          },
+        ]
+      : []),
+  ],
+  webServer: runSentrySuite
+    ? [
+        {
+          command: "cd ../web && pnpm preview --port 4173",
+          port: 4173,
+          reuseExistingServer: false,
+          timeout: 60_000,
+        },
+        {
+          command:
+            "cd ../web && pnpm exec vite build --outDir dist-e2e-sentry --emptyOutDir" +
+            ` && pnpm exec vite preview --outDir dist-e2e-sentry --port ${SENTRY_SUITE_PORT} --strictPort`,
+          port: SENTRY_SUITE_PORT,
+          reuseExistingServer: false,
+          timeout: 180_000,
+          env: {
+            VITE_SENTRY_DSN: "https://public@sentry.invalid/1",
+            VITE_SENTRY_ENV: "e2e",
+          },
+        },
+      ]
+    : undefined,
 });
