@@ -173,6 +173,9 @@ const test = base.extend<{ sentry: SentryRecorder }>({
     );
 
     await use(recorder);
+    // A test can end while a handler is still reading items.json. Let it
+    // finish, or closing the page disposes the response mid-read.
+    await page.unrouteAll({ behavior: "wait" });
   },
 });
 
@@ -191,6 +194,9 @@ async function throwProbe(page: Page) {
 
 test.beforeEach(async ({ page, sentry }) => {
   await page.goto("/");
+  // The paste box unlocks once the item DB has loaded. Tests that navigate
+  // straight away would otherwise cancel that request mid-handler.
+  await expect(page.locator("textarea.paste-area")).toBeEnabled();
   await page.evaluate(() =>
     Object.keys(localStorage).filter((k) => k.startsWith("eveship.")).forEach((k) => localStorage.removeItem(k)),
   );
