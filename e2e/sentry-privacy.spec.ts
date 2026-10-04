@@ -46,6 +46,7 @@ interface SentryErrorEvent {
   exception?: { values?: { value?: string }[] };
   breadcrumbs?: Breadcrumb[];
   request?: { url?: string };
+  contexts?: { culture?: { locale?: string } };
   user?: unknown;
   sdk?: { settings?: { infer_ip?: string } };
 }
@@ -83,6 +84,10 @@ class SentryRecorder {
 
   sawFuzzworkSpan(): boolean {
     return this.spanItems().some((i) => i.raw.includes(FUZZWORK_HOST));
+  }
+
+  sawPageLoadSpan(): boolean {
+    return this.spanItems().some((i) => i.raw.includes('"pageload"'));
   }
 
   probeEvent(): SentryErrorEvent | undefined {
@@ -224,9 +229,7 @@ test("a fresh paste with no active span carries no cargo", async ({ page, sentry
   sentry.sampleNextPageLoad = true;
   await page.reload();
   // The page-load span has ended and been sent, so nothing is active when the paste lands.
-  await expect
-    .poll(() => sentry.spanItems().some((i) => i.raw.includes('"pageload"')), { timeout: 20_000 })
-    .toBe(true);
+  await expect.poll(() => sentry.sawPageLoadSpan(), { timeout: 20_000 }).toBe(true);
 
   await pasteHangar(page);
   await expect.poll(() => sentry.requestedTypeIds.size).toBe(HANGAR_ITEM_NAMES.length);
@@ -261,6 +264,38 @@ test("an error event does not identify the visitor", async ({ page, sentry, base
   // `cookies: false` alone doesn't redden this. It catches an SDK release
   // that starts sending cookies anyway.
   expect(sentry.envelopes.filter((e) => e.raw.includes(cookieValue))).toEqual([]);
+});
+
+// Visitor location (ADR 0007): a time zone places the visitor below country
+// level wherever a country has more than one, as Brazil does. Only the
+// browser could have supplied this zone.
+const VISITOR_TIME_ZONE = "America/Noronha";
+const VISITOR_LOCALE = "pt-BR";
+
+test.describe("visitor location", () => {
+  test.use({ timezoneId: VISITOR_TIME_ZONE, locale: VISITOR_LOCALE });
+
+  test("neither an error event nor a sampled trace carries the visitor's time zone", async ({ page, sentry }) => {
+    sentry.sampleNextPageLoad = true;
+    await page.reload();
+    await throwProbe(page);
+
+    // Channel guards: a trace and an error event both reached Sentry, so the check below is not vacuous.
+    await expect.poll(() => sentry.sawPageLoadSpan(), { timeout: 20_000 }).toBe(true);
+    await expect.poll(() => sentry.probeEvent()).toBeDefined();
+
+    const carriers = sentry.envelopes
+      .filter((e) => e.raw.includes(VISITOR_TIME_ZONE))
+      .map((e) => e.items.map((i) => i.type).join("+"));
+    expect(carriers).toEqual([]);
+  });
+
+  test("an error event still carries the visitor's locale", async ({ page, sentry }) => {
+    await throwProbe(page);
+
+    await expect.poll(() => sentry.probeEvent()).toBeDefined();
+    expect(sentry.probeEvent()!.contexts?.culture?.locale).toBe(VISITOR_LOCALE);
+  });
 });
 
 test("clicks and typing inside data-sensitive regions leave no breadcrumbs", async ({ page, sentry }) => {
