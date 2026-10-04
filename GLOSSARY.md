@@ -61,6 +61,11 @@ All three flow through the same `parseHangarPaste` by splitting on `\t` and taki
 - **Contract-value copy click.** The metric that matters. Pasting a hangar is engagement; copying a contract value is conversion. Pinned as the primary event in self-hosted Umami. Other instrumented events (paste-parsed with volume bucket, route changed, service selected, tip copied) are supporting signals. No PII, no item content — only metadata.
 - **`unpriced` value bucket.** `paste-parsed` carries a coarse ISK `value` alongside its volume bucket. `unpriced` means the Fuzzwork lookup for that paste never answered; `0` means the paste genuinely held nothing priceable. Keeping them apart is why the event waits for prices to settle instead of firing on a timer — a paste emits once, and `value` describes the cargo rather than the moment the text landed.
 
+## Privacy
+
+- **Visitor location.** What stored data says about where a real-world visitor is: the place a service works out from their IP address, and their browser's time zone. Unrelated to the in-game *Locations* below. ADR 0007.
+  _Avoid_: geo, geolocation. Sentry's `geo` field holds only the IP-derived part.
+
 ## Locations
 
 - **Location data sources.** Three tiers, by how the listing data is obtained:
