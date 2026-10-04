@@ -86,6 +86,10 @@ class SentryRecorder {
     return this.spanItems().some((i) => i.raw.includes(FUZZWORK_HOST));
   }
 
+  sawPageLoadSpan(): boolean {
+    return this.spanItems().some((i) => i.raw.includes('"pageload"'));
+  }
+
   probeEvent(): SentryErrorEvent | undefined {
     return this.envelopes
       .flatMap((e) => e.items)
@@ -225,9 +229,7 @@ test("a fresh paste with no active span carries no cargo", async ({ page, sentry
   sentry.sampleNextPageLoad = true;
   await page.reload();
   // The page-load span has ended and been sent, so nothing is active when the paste lands.
-  await expect
-    .poll(() => sentry.spanItems().some((i) => i.raw.includes('"pageload"')), { timeout: 20_000 })
-    .toBe(true);
+  await expect.poll(() => sentry.sawPageLoadSpan(), { timeout: 20_000 }).toBe(true);
 
   await pasteHangar(page);
   await expect.poll(() => sentry.requestedTypeIds.size).toBe(HANGAR_ITEM_NAMES.length);
@@ -279,9 +281,7 @@ test.describe("visitor location", () => {
     await throwProbe(page);
 
     // Channel guards: a trace and an error event both reached Sentry, so the check below is not vacuous.
-    await expect
-      .poll(() => sentry.spanItems().some((i) => i.raw.includes('"pageload"')), { timeout: 20_000 })
-      .toBe(true);
+    await expect.poll(() => sentry.sawPageLoadSpan(), { timeout: 20_000 }).toBe(true);
     await expect.poll(() => sentry.probeEvent()).toBeDefined();
 
     const carriers = sentry.envelopes

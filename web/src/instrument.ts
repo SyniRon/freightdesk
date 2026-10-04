@@ -7,7 +7,7 @@
 // and drops URL query strings from spans. beforeBreadcrumb scrubs ui.*
 // breadcrumbs from any element marked data-sensitive="true" and cuts
 // fetch/xhr URLs at `?`. beforeSend strips the event's request URL query.
-// The browser's time zone, a visitor location, is never sent.
+// The browser's time zone, part of visitor location, is never sent.
 // e2e/sentry-privacy.spec.ts checks all of it against the real envelopes.
 
 import * as Sentry from "@sentry/react";
@@ -47,7 +47,7 @@ if (dsn) {
 
     // The SDK's default culture context also sends the browser's time zone,
     // which places a visitor below country level (ADR 0007, visitor
-    // location). It's swapped for a culture context that never reads it.
+    // location). It's swapped for a culture context without the time zone.
     integrations: (defaults) => [
       ...defaults.filter((integration) => integration.name !== "CultureContext"),
       Sentry.browserTracingIntegration(),
