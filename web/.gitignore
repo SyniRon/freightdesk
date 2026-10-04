@@ -9,3 +9,4 @@ public/items.json
 public/locations.json
 scripts/cache/*
 !scripts/cache/.gitkeep
+dist-e2e-sentry
